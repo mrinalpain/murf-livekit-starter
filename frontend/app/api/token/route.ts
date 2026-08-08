@@ -16,6 +16,7 @@ const LIVEKIT_URL = process.env.LIVEKIT_URL;
 const AGENT_NAME = process.env.AGENT_NAME;
 
 // don't cache the results
+export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export async function POST(req: Request) {

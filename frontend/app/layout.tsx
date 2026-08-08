@@ -64,46 +64,51 @@ export default async function RootLayout({ children }: RootLayoutProps) {
         <title>{pageTitle}</title>
         <meta name="description" content={pageDescription} />
       </head>
-      <body className="overflow-x-hidden">
+      <body className="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-teal-500 selection:text-white transition-colors duration-300">
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
         >
-          <header className="fixed top-0 left-0 z-50 hidden w-full flex-row justify-between p-6 md:flex">
-            <a
-              target="_blank"
-              rel="noopener noreferrer"
-              href="https://livekit.io"
-              className="scale-100 transition-transform duration-300 hover:scale-110"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={logo} alt={`${companyName} Logo`} className="block size-6 dark:hidden" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={logoDark ?? logo}
-                alt={`${companyName} Logo`}
-                className="hidden size-6 dark:block"
-              />
-            </a>
-            <span className="text-foreground font-mono text-xs font-bold tracking-wider uppercase">
-              Built with{' '}
-              <a
-                target="_blank"
-                rel="noopener noreferrer"
-                href="https://docs.livekit.io/agents"
-                className="underline underline-offset-4"
-              >
-                LiveKit Agents
-              </a>
-            </span>
+          {/* Top Integrated Navigation Header */}
+          <header className="fixed top-0 left-0 z-50 w-full flex flex-row items-center justify-between px-4 sm:px-8 py-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-teal-100/80 dark:border-teal-500/20 shadow-xs dark:shadow-teal-950/20 transition-colors duration-300">
+            {/* Left Brand Identifier */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 dark:from-teal-500 dark:to-emerald-400 text-white dark:text-slate-950 font-black shadow-md shadow-teal-700/20 dark:shadow-[0_0_15px_rgba(20,184,166,0.4)]">
+                <svg className="size-5 sm:size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-base sm:text-lg font-black tracking-tight text-teal-950 dark:bg-gradient-to-r dark:from-white dark:via-teal-100 dark:to-emerald-300 dark:bg-clip-text dark:text-transparent">
+                    Swasthya Sathi
+                  </span>
+                  <span className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/80 px-2 py-0.5 rounded-full border border-teal-200/80 dark:border-teal-500/30 uppercase tracking-wider">
+                    <span className="size-1.5 rounded-full bg-emerald-500 dark:bg-teal-400 animate-pulse"></span>
+                    Voice Companion
+                  </span>
+                </div>
+                <span className="hidden sm:inline-block text-[11px] font-medium text-teal-800/80 dark:text-teal-300/70">
+                  Your voice companion for everyday health
+                </span>
+              </div>
+            </div>
+
+            {/* Center Supported Languages */}
+            <div className="hidden sm:flex items-center gap-2 text-xs font-bold text-teal-800 dark:text-teal-200 bg-teal-50/90 dark:bg-slate-800/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-teal-200/80 dark:border-teal-500/30 shadow-2xs">
+              <span className="size-2 rounded-full bg-emerald-500 dark:bg-emerald-400 animate-ping"></span>
+              <span>English • हिंदी • বাংলা</span>
+            </div>
+
+            {/* Right Theme Switcher */}
+            <div className="flex items-center gap-2">
+              <ThemeToggle className="w-auto px-2 py-1 bg-teal-50/80 dark:bg-slate-900/90 border-teal-200/80 dark:border-teal-500/30 shadow-2xs" />
+            </div>
           </header>
 
           {children}
-          <div className="group fixed bottom-0 left-1/2 z-50 mb-2 -translate-x-1/2">
-            <ThemeToggle className="translate-y-20 transition-transform delay-150 duration-300 group-hover:translate-y-0" />
-          </div>
         </ThemeProvider>
       </body>
     </html>

@@ -33,20 +33,20 @@ export interface AppConfig {
 }
 
 export const APP_CONFIG_DEFAULTS: AppConfig = {
-  companyName: 'Murf AI',
-  pageTitle: 'Voice Agent Starter',
-  pageDescription: 'A voice agent powered by Murf Falcon — the fastest TTS API',
+  companyName: 'Swasthya Sathi',
+  pageTitle: 'Swasthya Sathi - Multilingual Healthcare Voice Assistant',
+  pageDescription: 'Your voice companion for everyday health (English • हिंदी • বাংলা)',
 
   supportsChatInput: true,
-  supportsVideoInput: true,
-  supportsScreenShare: true,
+  supportsVideoInput: false,
+  supportsScreenShare: false,
   isPreConnectBufferEnabled: true,
 
   logo: '/murf-logo.svg',
-  accent: '#6366F1',
+  accent: '#0d9488',
   logoDark: '/murf-logo-dark.svg',
-  accentDark: '#818cf8',
-  startButtonText: 'Start talking',
+  accentDark: '#14b8a6',
+  startButtonText: '🎙 Start Conversation',
 
   // optional: audio visualization configuration
   // audioVisualizerType: 'bar',
