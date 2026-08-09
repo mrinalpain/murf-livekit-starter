@@ -29,5 +29,8 @@ KMS
 .cursor/chat/
 .cursor/rules/*.local.mdc
 
-# GitHub CLI
-.github/personal-instructions.md
+# SQLite Database
+*.db
+data/*.db
+data/
+

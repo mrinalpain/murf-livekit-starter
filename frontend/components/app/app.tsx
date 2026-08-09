@@ -13,6 +13,8 @@ import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
 import { getSandboxTokenSource } from '@/lib/utils';
 
+import { getOrCreateCallerId } from '@/lib/caller-id';
+
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
 function AppSetup() {
@@ -33,10 +35,17 @@ export function App({ appConfig }: AppProps) {
       : TokenSource.endpoint('/api/token');
   }, [appConfig]);
 
-  const session = useSession(
-    tokenSource,
-    appConfig.agentName ? { agentName: appConfig.agentName } : undefined
+  const callerId = useMemo(() => getOrCreateCallerId(), []);
+
+  const sessionOptions = useMemo(
+    () => ({
+      agentName: appConfig.agentName,
+      participantIdentity: callerId,
+    }),
+    [appConfig.agentName, callerId]
   );
+
+  const session = useSession(tokenSource, sessionOptions);
 
   return (
     <AgentSessionProvider session={session}>
