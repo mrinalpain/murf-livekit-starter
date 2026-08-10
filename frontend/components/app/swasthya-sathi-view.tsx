@@ -7,6 +7,7 @@ import { useSessionContext, useAgent, useSessionMessages, useTrackToggle } from 
 import { Button } from '@/components/ui/button';
 import type { AppConfig } from '@/app-config';
 import { AudioVisualizer } from '@/components/agents-ui/blocks/agent-session-view-01/components/audio-visualizer';
+import { ThemeToggle } from '@/components/app/theme-toggle';
 
 interface SwasthyaSathiViewProps {
   appConfig: AppConfig;
@@ -115,11 +116,46 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
   };
 
   return (
-    <div className="relative h-screen w-full flex flex-col justify-between items-center bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans pt-16 pb-3 px-4 sm:px-8 overflow-hidden select-none transition-colors duration-300">
+    <div className="relative h-screen w-full flex flex-col justify-between items-center bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans pt-4 pb-3 px-4 sm:px-8 overflow-hidden select-none transition-colors duration-300">
       
       {/* Ambient Background Light Orbs */}
       <div className="pointer-events-none absolute top-1/3 left-1/4 size-[400px] rounded-full bg-teal-400/10 dark:bg-teal-500/15 blur-[120px] z-0 animate-pulse" />
       <div className="pointer-events-none absolute bottom-10 right-1/4 size-[350px] rounded-full bg-emerald-400/10 dark:bg-emerald-500/10 blur-[100px] z-0" />
+
+      {/* Top Navigation Bar Header */}
+      <header className="w-full max-w-6xl flex items-center justify-between z-20 py-2 px-2 border-b border-teal-100/60 dark:border-teal-500/20 mb-1">
+        {/* Left Logo & App Title */}
+        <div className="flex items-center gap-3">
+          <div className="size-10 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+            <svg className="size-6" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+                Swasthya Sathi
+              </h1>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold tracking-wide uppercase border border-emerald-200 dark:border-emerald-500/30">
+                VOICE COMPANION
+              </span>
+            </div>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Your voice companion for everyday health
+            </p>
+          </div>
+        </div>
+
+        {/* Center Language Indicator Pill */}
+        <div className="hidden md:flex items-center px-4 py-1.5 rounded-full bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
+          English &bull; हिंदी &bull; বাংলা
+        </div>
+
+        {/* Right Controls */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle className="scale-90" />
+        </div>
+      </header>
 
       {/* Side-by-Side Laptop Grid Container (Strictly Viewport Constrained) */}
       <div className="w-full max-w-6xl my-auto py-2 z-10 grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">

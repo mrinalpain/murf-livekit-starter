@@ -1,8 +1,10 @@
 import logging
+import json
 from typing import Optional
 
 from dotenv import load_dotenv
 from db import init_db, get_user_memory, save_user_memory
+from facility_lookup import find_nearby_facilities
 from livekit import rtc
 from prompt import SYSTEM_PROMPT
 from livekit.agents import (
@@ -46,9 +48,39 @@ def resolve_user_id(context: RunContext, user_id: Optional[str] = None) -> str:
     return user_id or "caller_default"
 
 
+def resolve_user_location(context: RunContext) -> tuple[Optional[float], Optional[float], Optional[str]]:
+    """Helper to extract browser geolocation (lat, lon) or location name from participant metadata."""
+    if (
+        context
+        and hasattr(context, "session")
+        and context.session
+        and hasattr(context.session, "room")
+        and context.session.room
+        and context.session.room.remote_participants
+    ):
+        for participant in context.session.room.remote_participants.values():
+            if hasattr(participant, "metadata") and participant.metadata:
+                try:
+                    meta = json.loads(participant.metadata)
+                    if isinstance(meta, dict):
+                        loc_meta = meta.get("location")
+                        if isinstance(loc_meta, dict):
+                            lat = loc_meta.get("lat") or loc_meta.get("latitude")
+                            lon = loc_meta.get("lng") or loc_meta.get("longitude")
+                            city = loc_meta.get("city") or loc_meta.get("name")
+                            if lat is not None and lon is not None:
+                                return float(lat), float(lon), city
+                        elif isinstance(loc_meta, str) and loc_meta.strip():
+                            return None, None, loc_meta.strip()
+                except Exception:
+                    pass
+    return None, None, None
+
+
 class Assistant(Agent):
     def __init__(self, instructions: str = SYSTEM_PROMPT) -> None:
         super().__init__(instructions=instructions)
+
 
     @function_tool
     async def lookup_user(self, context: RunContext, user_id: Optional[str] = None):
@@ -126,6 +158,61 @@ class Assistant(Agent):
             logger.error(f"Memory save failed user_id={caller_id}: {e}")
             return {"status": "error", "message": f"Save failed: {str(e)}"}
 
+    @function_tool
+    async def find_nearby_healthcare_facility(
+        self,
+        context: RunContext,
+        location: Optional[str] = None,
+        facility_type: Optional[str] = "government hospital",
+        limit: int = 3,
+    ):
+        """Find nearby real healthcare facilities such as government hospitals, Primary Health Centres (PHC), Community Health Centres (CHC), clinics, or health centres.
+
+        Use this tool ONLY when:
+        - The user asks for a nearby healthcare facility, hospital, PHC, CHC, clinic, or health centre.
+
+        Do NOT use this tool for general medical advice or symptoms without a facility lookup request.
+        Do NOT fabricate facility information.
+        Requires a location. If location is unknown and not auto-detected from browser context, ask the caller for their city or area first.
+
+        Args:
+            location: City, area name, landmark, or coordinates (optional if auto-detected from caller context)
+            facility_type: Type of facility requested, e.g. 'government hospital', 'PHC', 'CHC', 'clinic', 'hospital'
+            limit: Maximum number of facilities to return (default 3)
+        """
+        user_lat, user_lon, auto_loc = resolve_user_location(context)
+        target_location = location or auto_loc
+
+        # Clean generic location phrases if LLM passes "near me" or "my location"
+        if target_location and target_location.lower().strip() in ("near me", "my location", "here", "current location"):
+            target_location = auto_loc
+
+        logger.info(
+            f"Tool find_nearby_healthcare_facility called: location='{target_location}', "
+            f"lat={user_lat}, lon={user_lon}, facility_type='{facility_type}', limit={limit}"
+        )
+
+        try:
+            result = find_nearby_facilities(
+                location=target_location,
+                lat=user_lat,
+                lon=user_lon,
+                facility_type=facility_type or "government hospital",
+                limit=limit or 3,
+            )
+            logger.info(
+                f"Facility lookup result: success={result.get('success')}, "
+                f"count={len(result.get('facilities', [])) if result.get('facilities') else 0}"
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Facility lookup tool exception: {e}")
+            return {
+                "success": False,
+                "error": "Healthcare facility lookup is temporarily unavailable.",
+            }
+
+
 
 server = AgentServer()
 
@@ -147,7 +234,7 @@ async def my_agent(ctx: JobContext):
     # Set up voice AI pipeline using Murf Falcon, Gemini, Deepgram, and Multilingual VAD
     session = AgentSession(
         stt=deepgram.STT(model="nova-3", language="multi"),
-        llm=google.LLM(model="gemini-3.6-flash"),
+        llm=google.LLM(model="gemini-2.0-flash"),
         tts=murf.TTS(
             voice="Anisha",
             style="Conversation",

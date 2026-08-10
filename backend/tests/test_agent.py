@@ -20,11 +20,15 @@ async def test_offers_assistance() -> None:
         # Run an agent turn following the user's greeting
         result = await session.run(user_input="Hello")
 
+        # Handle optional initial lookup_user tool call event if present
+        event = result.expect.next_event()
+        if hasattr(event, "type") and event.type == "function_call":
+            result.expect.next_event().is_function_call_output()
+            event = result.expect.next_event()
+
         # Evaluate the agent's response for friendliness
         await (
-            result.expect.next_event()
-            .is_message(role="assistant")
-            .judge(
+            event.is_message(role="assistant").judge(
                 llm,
                 intent="""
                 Greets the user in a friendly manner.

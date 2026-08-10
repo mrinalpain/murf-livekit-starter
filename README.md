@@ -260,6 +260,64 @@ For deeper documentation on each part, see:
 
 ---
 
+## Day 5: Real Healthcare Facility Lookup Tool
+
+### Tool Overview
+`find_nearby_healthcare_facility` is a LiveKit function tool that enables **Swasthya Sathi** to locate real-world healthcare facilities (Government Hospitals, Primary Health Centres PHC, Community Health Centres CHC, Clinics, and District Hospitals).
+
+### Data Source & Architecture
+- **Primary Data Source**: Google Places API (Text & Nearby Search) when `GOOGLE_MAPS_API_KEY` is configured.
+- **Default / Live Fallback Data Source**: OpenStreetMap (Nominatim & Overpass API) providing live, real-world health facility records across India and worldwide without requiring API keys.
+
+### Data Type & Structure
+The tool converts external map responses into structured JSON with real distances (calculated via Haversine formula) and ISO 8601 timestamps:
+
+```json
+{
+  "success": true,
+  "source": "OpenStreetMap",
+  "retrieved_at": "2026-08-10T20:45:00Z",
+  "location": "Bhubaneswar, Odisha",
+  "facilities": [
+    {
+      "name": "Capital Hospital Bhubaneswar",
+      "type": "Government Hospital",
+      "address": "Unit 6, Ganga Nagar, Bhubaneswar, Odisha 751001",
+      "distance_km": 2.1
+    }
+  ]
+}
+```
+
+### Data Freshness
+Results are retrieved live at the moment of request. The tool outputs a `retrieved_at` ISO 8601 timestamp which the agent naturally communicates in speech (e.g. *"I checked facility information just now"*).
+
+### Environment Variables
+| Variable | Description | Required |
+| --- | --- | --- |
+| `GOOGLE_MAPS_API_KEY` | Key for Google Places API searching. If omitted, OpenStreetMap Nominatim/Overpass API is used automatically. | Optional |
+| `DISABLE_FACILITY_API` | Set to `true` to simulate API outage/failure for testing fallback handling. | Optional |
+
+### Failure Behavior & Medical Safety
+- **No Hallucination**: The agent will NEVER invent hospital names, addresses, distances, or opening hours.
+- **Graceful Fallback**: On API timeout or network failure, the agent responds: *"I'm unable to access healthcare facility information right now, so I don't want to give you incorrect information."*
+- **Emergency Escalation**: For urgent symptoms (e.g., severe leg pain for 3 days preventing walking, chest pain, heavy bleeding), the agent prioritizes emergency guidance while assisting with hospital lookup.
+- **Location Privacy**: User GPS coordinates are used for current lookup only and are never saved to SQLite persistent memory.
+
+### Demo Scenarios
+1. **Normal Lookup**:
+   - Caller: *"Can you find a government hospital in Bhubaneswar?"*
+   - Agent: *"I found a government hospital about 2 kilometers away. It's called Capital Hospital Bhubaneswar. Would you like me to give you the address?"*
+2. **Missing Location**:
+   - Caller: *"Find a hospital near me."* (Geolocation permission denied)
+   - Agent: *"I can help with that. Which city or area are you currently in?"*
+3. **Failure Path Testing**:
+   - Set `DISABLE_FACILITY_API=true` in `backend/.env.local`.
+   - Caller: *"Find a government hospital near me."*
+   - Agent: *"I'm unable to access healthcare facility information right now, so I don't want to give you incorrect information."*
+
+---
+
 ## Links
 
 - [Murf API Docs](https://murf.ai/api/docs)
@@ -276,3 +334,4 @@ For deeper documentation on each part, see:
 ## License
 
 MIT
+
