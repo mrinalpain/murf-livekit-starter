@@ -120,6 +120,12 @@ Replace the `llm=google.LLM(...)` call in `agent.py`. For OpenAI: install `livek
 ### Change frontend branding
 Edit `frontend/app-config.ts` — company name, page title, logo paths, accent colors, button text, visualizer type.
 
+### Language & Script Policy
+Always write every language in its own native script.
+- Hindi → Devanagari (e.g. नमस्ते), never romanized (never "namaste").
+- Bengali → Bengali script (e.g. নমস্কার), never romanized.
+- Same rule applies to all non-English languages.
+
 ## Documentation references
 
 - Murf Falcon TTS: https://murf.ai/api/docs/text-to-speech/streaming

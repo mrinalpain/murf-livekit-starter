@@ -1,5 +1,6 @@
 import os
 import sys
+
 import pytest
 
 # Ensure src is in python path
@@ -7,7 +8,9 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from db import init_db, get_user_memory, save_user_memory, DB_PATH
+import contextlib  # noqa: E402
+
+from db import DB_PATH, get_user_memory, init_db, save_user_memory  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -17,10 +20,8 @@ def setup_test_db():
     yield
     # Cleanup database file after test if needed or leave for verification
     if os.path.exists(DB_PATH):
-        try:
+        with contextlib.suppress(OSError):
             os.remove(DB_PATH)
-        except OSError:
-            pass
 
 
 def test_init_db_creates_file():
@@ -59,7 +60,7 @@ def test_save_and_retrieve_user_memory():
 def test_upsert_preserves_existing_fields():
     """Verify that updating a single field retains existing saved fields."""
     user_id = "caller_test_002"
-    
+
     # 1. Save name first
     save_user_memory(user_id=user_id, name="Suresh")
     record = get_user_memory(user_id)

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TokenSource } from 'livekit-client';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
@@ -11,9 +11,8 @@ import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
 import { useAgentErrors } from '@/hooks/useAgentErrors';
 import { useDebugMode } from '@/hooks/useDebug';
-import { getSandboxTokenSource } from '@/lib/utils';
-
 import { getOrCreateCallerId } from '@/lib/caller-id';
+import { getSandboxTokenSource } from '@/lib/utils';
 
 const IN_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
@@ -60,7 +59,9 @@ export function App({ appConfig }: AppProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           participant_identity: callerId,
-          room_config: appConfig.agentName ? { agents: [{ agentName: appConfig.agentName }] } : undefined,
+          room_config: appConfig.agentName
+            ? { agents: [{ agentName: appConfig.agentName }] }
+            : undefined,
           location: userLocation,
         }),
       });

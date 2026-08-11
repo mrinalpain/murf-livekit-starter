@@ -43,7 +43,7 @@ export async function POST(req: Request) {
         { ignoreUnknownFields: true }
       );
     }
-      
+
     // Generate participant token
     const participantName = 'user';
     const participantIdentity =
@@ -53,8 +53,7 @@ export async function POST(req: Request) {
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
 
     const metadata =
-      body?.metadata ||
-      (body?.location ? JSON.stringify({ location: body.location }) : undefined);
+      body?.metadata || (body?.location ? JSON.stringify({ location: body.location }) : undefined);
 
     const participantToken = await createParticipantToken(
       { identity: participantIdentity, name: participantName, metadata },

@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Track } from 'livekit-client';
-import { useSessionContext, useAgent, useSessionMessages, useTrackToggle } from '@livekit/components-react';
-import { Button } from '@/components/ui/button';
+import { AnimatePresence, motion } from 'motion/react';
+import {
+  useAgent,
+  useSessionContext,
+  useSessionMessages,
+  useTrackToggle,
+} from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import { AudioVisualizer } from '@/components/agents-ui/blocks/agent-session-view-01/components/audio-visualizer';
 import { ThemeToggle } from '@/components/app/theme-toggle';
+import { Button } from '@/components/ui/button';
 
 interface SwasthyaSathiViewProps {
   appConfig: AppConfig;
@@ -24,7 +29,33 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
   const [connectionFailed, setConnectionFailed] = useState(false);
   const [callEndedState, setCallEndedState] = useState(false);
   const [isStartingCall, setIsStartingCall] = useState(false);
-  
+  const [outboundStatus, setOutboundStatus] = useState<string | null>(null);
+  const [isTriggeringOutbound, setIsTriggeringOutbound] = useState(false);
+
+  const handleTriggerOutboundCall = async () => {
+    setIsTriggeringOutbound(true);
+    setOutboundStatus(null);
+    try {
+      const res = await fetch('/api/outbound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Follow-up after health consultation',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOutboundStatus('Outbound call initiated! Linphone should ring shortly.');
+      } else {
+        setOutboundStatus(`Call failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setOutboundStatus(`Call failed: ${err instanceof Error ? err.message : 'Error'}`);
+    } finally {
+      setIsTriggeringOutbound(false);
+    }
+  };
+
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const micToggle = useTrackToggle({ source: Track.Source.Microphone });
 
@@ -43,9 +74,14 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
   }, [agent.state]);
 
   // Active state conditions
-  const isConnecting = isStartingCall || connectionState === 'connecting' || agent.state === 'connecting' || agent.state === 'initializing';
+  const isConnecting =
+    isStartingCall ||
+    connectionState === 'connecting' ||
+    agent.state === 'connecting' ||
+    agent.state === 'initializing';
   const isSpeaking = isConnected && (agent.state === 'speaking' || agent.state === 'thinking');
-  const isListening = isConnected && !isSpeaking && (agent.state === 'listening' || agent.canListen);
+  const isListening =
+    isConnected && !isSpeaking && (agent.state === 'listening' || agent.canListen);
 
   // Start call handler
   const handleStartCall = async () => {
@@ -57,7 +93,9 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
     try {
       if (typeof window !== 'undefined' && navigator.permissions?.query) {
         try {
-          const status = await navigator.permissions.query({ name: 'microphone' as PermissionName });
+          const status = await navigator.permissions.query({
+            name: 'microphone' as PermissionName,
+          });
           if (status.state === 'denied') {
             setMicBlocked(true);
             setIsStartingCall(false);
@@ -116,27 +154,26 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
   };
 
   return (
-    <div className="relative h-screen w-full flex flex-col justify-between items-center bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans pt-4 pb-3 px-4 sm:px-8 overflow-hidden select-none transition-colors duration-300">
-      
+    <div className="relative flex h-screen w-full flex-col items-center justify-between overflow-hidden bg-slate-50 px-4 pt-4 pb-3 font-sans text-slate-800 transition-colors duration-300 select-none sm:px-8 dark:bg-slate-950 dark:text-slate-100">
       {/* Ambient Background Light Orbs */}
-      <div className="pointer-events-none absolute top-1/3 left-1/4 size-[400px] rounded-full bg-teal-400/10 dark:bg-teal-500/15 blur-[120px] z-0 animate-pulse" />
-      <div className="pointer-events-none absolute bottom-10 right-1/4 size-[350px] rounded-full bg-emerald-400/10 dark:bg-emerald-500/10 blur-[100px] z-0" />
+      <div className="pointer-events-none absolute top-1/3 left-1/4 z-0 size-[400px] animate-pulse rounded-full bg-teal-400/10 blur-[120px] dark:bg-teal-500/15" />
+      <div className="pointer-events-none absolute right-1/4 bottom-10 z-0 size-[350px] rounded-full bg-emerald-400/10 blur-[100px] dark:bg-emerald-500/10" />
 
       {/* Top Navigation Bar Header */}
-      <header className="w-full max-w-6xl flex items-center justify-between z-20 py-2 px-2 border-b border-teal-100/60 dark:border-teal-500/20 mb-1">
+      <header className="z-20 mb-1 flex w-full max-w-6xl items-center justify-between border-b border-teal-100/60 px-2 py-2 dark:border-teal-500/20">
         {/* Left Logo & App Title */}
         <div className="flex items-center gap-3">
-          <div className="size-10 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shadow-md shadow-emerald-600/20">
+          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-600/20 dark:bg-emerald-500">
             <svg className="size-6" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl dark:text-white">
                 Swasthya Sathi
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[10px] font-extrabold tracking-wide uppercase border border-emerald-200 dark:border-emerald-500/30">
+              <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-emerald-800 uppercase dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-300">
                 VOICE COMPANION
               </span>
             </div>
@@ -147,7 +184,7 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
         </div>
 
         {/* Center Language Indicator Pill */}
-        <div className="hidden md:flex items-center px-4 py-1.5 rounded-full bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
+        <div className="hidden items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-1.5 text-xs font-bold text-slate-700 shadow-2xs md:flex dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300">
           English &bull; हिंदी &bull; বাংলা
         </div>
 
@@ -158,76 +195,108 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
       </header>
 
       {/* Side-by-Side Laptop Grid Container (Strictly Viewport Constrained) */}
-      <div className="w-full max-w-6xl my-auto py-2 z-10 grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        
+      <div className="z-10 my-auto grid w-full max-w-6xl grid-cols-1 items-stretch gap-6 py-2 lg:grid-cols-2">
         {/* LEFT COLUMN: Voice Agent & Interaction HUD */}
-        <div className="relative backdrop-blur-2xl bg-white/90 dark:bg-slate-900/75 border border-teal-100 dark:border-teal-500/25 rounded-3xl p-6 sm:p-7 shadow-xl shadow-teal-900/5 dark:shadow-[0_0_40px_rgba(13,148,136,0.15)] flex flex-col justify-between gap-4 transition-colors duration-300">
-          
+        <div className="relative flex flex-col justify-between gap-4 rounded-3xl border border-teal-100 bg-white/90 p-6 shadow-xl shadow-teal-900/5 backdrop-blur-2xl transition-colors duration-300 sm:p-7 dark:border-teal-500/25 dark:bg-slate-900/75 dark:shadow-[0_0_40px_rgba(13,148,136,0.15)]">
           {/* Decorative Corner HUD Markers */}
-          <div className="absolute top-3 left-3 size-2 border-t-2 border-l-2 border-teal-500/50 rounded-tl-xs pointer-events-none" />
-          <div className="absolute top-3 right-3 size-2 border-t-2 border-r-2 border-teal-500/50 rounded-tr-xs pointer-events-none" />
-          <div className="absolute bottom-3 left-3 size-2 border-b-2 border-l-2 border-teal-500/50 rounded-bl-xs pointer-events-none" />
-          <div className="absolute bottom-3 right-3 size-2 border-b-2 border-r-2 border-teal-500/50 rounded-br-xs pointer-events-none" />
+          <div className="pointer-events-none absolute top-3 left-3 size-2 rounded-tl-xs border-t-2 border-l-2 border-teal-500/50" />
+          <div className="pointer-events-none absolute top-3 right-3 size-2 rounded-tr-xs border-t-2 border-r-2 border-teal-500/50" />
+          <div className="pointer-events-none absolute bottom-3 left-3 size-2 rounded-bl-xs border-b-2 border-l-2 border-teal-500/50" />
+          <div className="pointer-events-none absolute right-3 bottom-3 size-2 rounded-br-xs border-r-2 border-b-2 border-teal-500/50" />
 
           {/* Agent Status Header */}
-          <div className="text-center space-y-1">
+          <div className="space-y-1 text-center">
             <AnimatePresence mode="wait">
               {micBlocked ? (
-                <motion.div key="mic-error" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-red-100 dark:bg-red-950/80 text-red-700 dark:text-red-300 text-[11px] font-extrabold border border-red-200 dark:border-red-500/40">
+                <motion.div
+                  key="mic-error"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-red-200 bg-red-100 px-3.5 py-0.5 text-[11px] font-extrabold text-red-700 dark:border-red-500/40 dark:bg-red-950/80 dark:text-red-300">
                     🎙 MICROPHONE BLOCKED
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                  <h2 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl dark:text-white">
                     Microphone access is blocked
                   </h2>
                 </motion.div>
               ) : connectionFailed ? (
-                <motion.div key="conn-error" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[11px] font-extrabold border border-amber-200 dark:border-amber-500/40">
+                <motion.div
+                  key="conn-error"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-100 px-3.5 py-0.5 text-[11px] font-extrabold text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/80 dark:text-amber-300">
                     ⚠️ CONNECTION ISSUE
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mt-1">
+                  <h2 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl dark:text-white">
                     Unable to connect
                   </h2>
                 </motion.div>
               ) : callEndedState ? (
-                <motion.div key="ended" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 text-emerald-800 dark:text-emerald-300 text-[11px] font-extrabold border border-emerald-200 dark:border-emerald-500/40">
+                <motion.div
+                  key="ended"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-100 px-3.5 py-0.5 text-[11px] font-extrabold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-950/80 dark:text-emerald-300">
                     ✓ SESSION COMPLETED
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-teal-950 dark:text-white mt-1">
+                  <h2 className="mt-1 text-xl font-extrabold text-teal-950 sm:text-2xl dark:text-white">
                     Conversation ended
                   </h2>
-                  <p className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400">Take care!</p>
+                  <p className="text-xs font-semibold text-emerald-600 sm:text-sm dark:text-emerald-400">
+                    Take care!
+                  </p>
                 </motion.div>
               ) : isConnecting ? (
-                <motion.div key="connecting" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 text-[11px] font-extrabold border border-teal-200 dark:border-teal-500/40">
-                    <span className="size-2 rounded-full bg-teal-500 dark:bg-teal-400 animate-ping"></span>
+                <motion.div
+                  key="connecting"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-100 px-3.5 py-0.5 text-[11px] font-extrabold text-teal-800 dark:border-teal-500/40 dark:bg-teal-950/80 dark:text-teal-300">
+                    <span className="size-2 animate-ping rounded-full bg-teal-500 dark:bg-teal-400"></span>
                     CONNECTING...
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-teal-950 dark:text-white mt-1">
+                  <h2 className="mt-1 text-xl font-extrabold text-teal-950 sm:text-2xl dark:text-white">
                     Connecting to Swasthya Sathi...
                   </h2>
-                  <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400">Please wait</p>
+                  <p className="text-xs font-medium text-slate-500 sm:text-sm dark:text-slate-400">
+                    Please wait
+                  </p>
                 </motion.div>
               ) : isSpeaking ? (
-                <motion.div key="speaking" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-950/90 text-teal-900 dark:text-teal-200 text-[11px] font-extrabold border border-teal-300 dark:border-teal-400/50 shadow-2xs dark:shadow-[0_0_15px_rgba(20,184,166,0.3)]">
-                    <span className="size-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-pulse"></span>
+                <motion.div
+                  key="speaking"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-300 bg-teal-100 px-3.5 py-0.5 text-[11px] font-extrabold text-teal-900 shadow-2xs dark:border-teal-400/50 dark:bg-teal-950/90 dark:text-teal-200 dark:shadow-[0_0_15px_rgba(20,184,166,0.3)]">
+                    <span className="size-2 animate-pulse rounded-full bg-teal-600 dark:bg-teal-400"></span>
                     AGENT ACTIVE
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-teal-900 dark:text-teal-200 mt-1">
+                  <h2 className="mt-1 text-xl font-black text-teal-900 sm:text-2xl dark:text-teal-200">
                     🔊 Swasthya Sathi is speaking...
                   </h2>
                 </motion.div>
               ) : isListening ? (
-                <motion.div key="listening" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/90 text-emerald-900 dark:text-emerald-200 text-[11px] font-extrabold border border-emerald-300 dark:border-emerald-400/50 shadow-2xs dark:shadow-[0_0_15px_rgba(52,211,153,0.3)]">
-                    <span className="size-2 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-ping"></span>
+                <motion.div
+                  key="listening"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3.5 py-0.5 text-[11px] font-extrabold text-emerald-900 shadow-2xs dark:border-emerald-400/50 dark:bg-emerald-950/90 dark:text-emerald-200 dark:shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+                    <span className="size-2 animate-ping rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
                     YOUR TURN TO SPEAK
                   </span>
-                  <h2 className="text-xl sm:text-2xl font-black text-emerald-900 dark:text-emerald-300 mt-1">
+                  <h2 className="mt-1 text-xl font-black text-emerald-900 sm:text-2xl dark:text-emerald-300">
                     🎙 Listening to you...
                   </h2>
                   <p className="text-xs font-semibold text-emerald-700/80 dark:text-emerald-400/80">
@@ -235,20 +304,25 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                   </p>
                 </motion.div>
               ) : (
-                <motion.div key="ready" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-                  <div className="flex items-center justify-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1.5 px-3.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 text-[11px] font-extrabold border border-teal-200/80 dark:border-teal-500/30">
+                <motion.div
+                  key="ready"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-200/80 bg-teal-50 px-3.5 py-0.5 text-[11px] font-extrabold text-teal-800 dark:border-teal-500/30 dark:bg-teal-950/60 dark:text-teal-300">
                       <span className="size-2 rounded-full bg-teal-500 dark:bg-teal-400"></span>
                       VOICE ASSISTANT READY
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 text-[10px] font-semibold border border-indigo-200/80 dark:border-indigo-500/30">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-200/80 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-950/60 dark:text-indigo-300">
                       ✨ Memory Active
                     </span>
                   </div>
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-teal-950 dark:text-white mt-1">
+                  <h2 className="mt-1 text-xl font-extrabold text-teal-950 sm:text-2xl dark:text-white">
                     Ready to help
                   </h2>
-                  <p className="text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-400">
+                  <p className="text-xs font-medium text-slate-600 sm:text-sm dark:text-slate-400">
                     Tap below to start your conversation
                   </p>
                 </motion.div>
@@ -257,50 +331,95 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
           </div>
 
           {/* Centerpiece Audio Visualizer Area */}
-          <div className="relative flex items-center justify-center py-4 my-auto min-h-[220px]">
+          <div className="relative my-auto flex min-h-[220px] items-center justify-center py-4">
             {micBlocked ? (
-              <div className="flex flex-col items-center gap-3 text-center p-3">
-                <div className="size-24 rounded-full bg-red-50 dark:bg-red-950/50 border-2 border-red-200 dark:border-red-500/40 flex items-center justify-center text-red-500 shadow-md">
-                  <svg className="size-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                    <line x1="1" y1="1" x2="23" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              <div className="flex flex-col items-center gap-3 p-3 text-center">
+                <div className="flex size-24 items-center justify-center rounded-full border-2 border-red-200 bg-red-50 text-red-500 shadow-md dark:border-red-500/40 dark:bg-red-950/50">
+                  <svg
+                    className="size-12"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
+                    <line
+                      x1="1"
+                      y1="1"
+                      x2="23"
+                      y2="23"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
                   </svg>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-xs font-medium">
+                <p className="max-w-xs text-xs font-medium text-slate-600 dark:text-slate-300">
                   Please allow microphone access in your browser settings and try again.
                 </p>
               </div>
             ) : connectionFailed ? (
-              <div className="flex flex-col items-center gap-3 text-center p-3">
-                <div className="size-24 rounded-full bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-200 dark:border-amber-500/40 flex items-center justify-center text-amber-600 dark:text-amber-400 shadow-md">
-                  <svg className="size-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <div className="flex flex-col items-center gap-3 p-3 text-center">
+                <div className="flex size-24 items-center justify-center rounded-full border-2 border-amber-200 bg-amber-50 text-amber-600 shadow-md dark:border-amber-500/40 dark:bg-amber-950/50 dark:text-amber-400">
+                  <svg
+                    className="size-12"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                    />
                   </svg>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-xs font-medium">
-                  We couldn&apos;t connect to Swasthya Sathi right now. Please check your network and try again.
+                <p className="max-w-xs text-xs font-medium text-slate-600 dark:text-slate-300">
+                  We couldn&apos;t connect to Swasthya Sathi right now. Please check your network
+                  and try again.
                 </p>
               </div>
             ) : callEndedState ? (
               <div className="flex flex-col items-center justify-center">
-                <div className="size-24 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border-2 border-emerald-200 dark:border-emerald-500/50 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-lg">
-                  <svg className="size-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <div className="flex size-24 items-center justify-center rounded-full border-2 border-emerald-200 bg-emerald-50 text-emerald-600 shadow-lg dark:border-emerald-500/50 dark:bg-emerald-950/60 dark:text-emerald-400">
+                  <svg
+                    className="size-14"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
               </div>
             ) : isConnecting ? (
               <div className="relative flex items-center justify-center">
-                <div className="absolute size-36 rounded-full border-4 border-teal-200 dark:border-teal-500/30 border-t-teal-600 dark:border-t-teal-400 animate-spin" />
-                <div className="size-28 rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-white shadow-xl shadow-teal-900/20 animate-pulse">
-                  <svg className="size-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                <div className="absolute size-36 animate-spin rounded-full border-4 border-teal-200 border-t-teal-600 dark:border-teal-500/30 dark:border-t-teal-400" />
+                <div className="flex size-28 animate-pulse items-center justify-center rounded-full bg-gradient-to-tr from-teal-500 to-emerald-500 text-white shadow-xl shadow-teal-900/20">
+                  <svg
+                    className="size-14"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.684a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                    />
                   </svg>
                 </div>
               </div>
             ) : isConnected ? (
-              <div className="flex flex-col items-center justify-center w-full">
-                <div className="relative flex items-center justify-center h-[180px] w-full">
+              <div className="flex w-full flex-col items-center justify-center">
+                <div className="relative flex h-[180px] w-full items-center justify-center">
                   <AudioVisualizer
                     isChatOpen={false}
                     audioVisualizerType="bar"
@@ -309,8 +428,12 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                     className="size-[200px] place-self-center"
                   />
                   {isListening && (
-                    <div className="absolute bottom-0 bg-emerald-50 dark:bg-emerald-950/90 border border-emerald-200 dark:border-emerald-400/50 text-emerald-800 dark:text-emerald-200 text-xs font-bold px-3.5 py-1 rounded-full shadow-2xs flex items-center gap-1.5">
-                      <svg className="size-3.5 text-emerald-600 dark:text-emerald-400 animate-bounce" fill="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute bottom-0 flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-800 shadow-2xs dark:border-emerald-400/50 dark:bg-emerald-950/90 dark:text-emerald-200">
+                      <svg
+                        className="size-3.5 animate-bounce text-emerald-600 dark:text-emerald-400"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
                         <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
                       </svg>
@@ -318,8 +441,12 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                     </div>
                   )}
                   {isSpeaking && (
-                    <div className="absolute bottom-0 bg-teal-50 dark:bg-teal-950/90 border border-teal-200 dark:border-teal-400/50 text-teal-800 dark:text-teal-200 text-xs font-bold px-3.5 py-1 rounded-full shadow-2xs flex items-center gap-1.5">
-                      <svg className="size-3.5 text-teal-600 dark:text-teal-400 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <div className="absolute bottom-0 flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1 text-xs font-bold text-teal-800 shadow-2xs dark:border-teal-400/50 dark:bg-teal-950/90 dark:text-teal-200">
+                      <svg
+                        className="size-3.5 animate-pulse text-teal-600 dark:text-teal-400"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
                       </svg>
                       Speaking response...
@@ -330,11 +457,21 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
             ) : (
               /* Ready State Central Visual */
               <div className="relative flex items-center justify-center">
-                <div className="absolute size-36 rounded-full bg-teal-200/50 dark:bg-teal-500/20 animate-ping" />
-                <div className="absolute size-32 rounded-full bg-teal-100/70 dark:bg-teal-500/10 border border-teal-200/60 dark:border-teal-400/20" />
-                <div className="relative size-28 rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 text-white dark:text-slate-950 font-bold shadow-xl shadow-teal-700/20 dark:shadow-[0_0_35px_rgba(20,184,166,0.4)] flex items-center justify-center transform transition duration-300 hover:scale-105">
-                  <svg className="size-14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                <div className="absolute size-36 animate-ping rounded-full bg-teal-200/50 dark:bg-teal-500/20" />
+                <div className="absolute size-32 rounded-full border border-teal-200/60 bg-teal-100/70 dark:border-teal-400/20 dark:bg-teal-500/10" />
+                <div className="relative flex size-28 transform items-center justify-center rounded-full bg-gradient-to-br from-teal-600 to-emerald-600 font-bold text-white shadow-xl shadow-teal-700/20 transition duration-300 hover:scale-105 dark:text-slate-950 dark:shadow-[0_0_35px_rgba(20,184,166,0.4)]">
+                  <svg
+                    className="size-14"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+                    />
                   </svg>
                 </div>
               </div>
@@ -342,12 +479,12 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
           </div>
 
           {/* Primary Action Buttons */}
-          <div className="pt-2 flex flex-col items-center gap-3">
+          <div className="flex flex-col items-center gap-3 pt-2">
             {micBlocked || connectionFailed ? (
               <Button
                 size="lg"
                 onClick={handleStartCall}
-                className="w-full max-w-sm h-14 rounded-full bg-teal-700 hover:bg-teal-800 dark:bg-gradient-to-r dark:from-teal-500 dark:to-emerald-500 text-white dark:text-slate-950 font-black text-base shadow-lg transition active:scale-98"
+                className="h-14 w-full max-w-sm rounded-full bg-teal-700 text-base font-black text-white shadow-lg transition hover:bg-teal-800 active:scale-98 dark:bg-gradient-to-r dark:from-teal-500 dark:to-emerald-500 dark:text-slate-950"
               >
                 🔄 Try Again
               </Button>
@@ -355,7 +492,7 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
               <Button
                 size="lg"
                 onClick={handleStartNewConversation}
-                className="w-full max-w-sm h-14 rounded-full bg-teal-700 hover:bg-teal-800 dark:bg-gradient-to-r dark:from-teal-500 dark:to-emerald-400 text-white dark:text-slate-950 font-extrabold text-base shadow-xl transition active:scale-98"
+                className="h-14 w-full max-w-sm rounded-full bg-teal-700 text-base font-extrabold text-white shadow-xl transition hover:bg-teal-800 active:scale-98 dark:bg-gradient-to-r dark:from-teal-500 dark:to-emerald-400 dark:text-slate-950"
               >
                 🎙 Start New Conversation
               </Button>
@@ -363,21 +500,21 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
               <Button
                 size="lg"
                 disabled
-                className="w-full max-w-sm h-14 rounded-full bg-teal-100 dark:bg-teal-950/80 text-teal-800 dark:text-teal-300 font-bold text-base shadow-none opacity-90 cursor-not-allowed border border-teal-200 dark:border-teal-500/40"
+                className="h-14 w-full max-w-sm cursor-not-allowed rounded-full border border-teal-200 bg-teal-100 text-base font-bold text-teal-800 opacity-90 shadow-none dark:border-teal-500/40 dark:bg-teal-950/80 dark:text-teal-300"
               >
-                <div className="size-5 border-2 border-teal-800 dark:border-teal-400 border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="mr-2 size-5 animate-spin rounded-full border-2 border-teal-800 border-t-transparent dark:border-teal-400" />
                 Connecting...
               </Button>
             ) : isConnected ? (
-              <div className="w-full flex items-center justify-center gap-3">
+              <div className="flex w-full items-center justify-center gap-3">
                 {/* Mute Toggle Button */}
                 <Button
                   variant="outline"
                   onClick={handleToggleMute}
-                  className={`h-13 px-5 rounded-full border text-sm font-bold transition ${
+                  className={`h-13 rounded-full border px-5 text-sm font-bold transition ${
                     !micToggle.enabled
-                      ? 'bg-amber-50 dark:bg-amber-950/80 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-500/40'
-                      : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-teal-200 border-slate-200 dark:border-teal-500/30 hover:bg-slate-50 dark:hover:bg-slate-800'
+                      ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/80 dark:text-amber-200'
+                      : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-teal-500/30 dark:bg-slate-900 dark:text-teal-200 dark:hover:bg-slate-800'
                   }`}
                 >
                   {!micToggle.enabled ? '🔇 Unmute' : '🎙 Mute'}
@@ -387,50 +524,88 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                 <Button
                   size="lg"
                   onClick={handleEndCall}
-                  className="h-13 px-8 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-base shadow-md shadow-rose-900/10 dark:shadow-[0_0_20px_rgba(225,29,72,0.4)] transition active:scale-98"
+                  className="h-13 rounded-full bg-rose-600 px-8 text-base font-extrabold text-white shadow-md shadow-rose-900/10 transition hover:bg-rose-700 active:scale-98 dark:shadow-[0_0_20px_rgba(225,29,72,0.4)]"
                 >
                   🛑 End Conversation
                 </Button>
               </div>
             ) : (
               /* Ready State Primary Action Button */
-              <Button
-                size="lg"
-                onClick={handleStartCall}
-                className="w-full max-w-sm h-14 sm:h-16 rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-500 dark:via-emerald-400 dark:to-teal-400 text-white dark:text-slate-950 font-black text-lg tracking-wide shadow-xl shadow-teal-800/20 dark:shadow-[0_0_30px_rgba(20,184,166,0.45)] transition transform active:scale-98"
-              >
-                🎙 Start Conversation
-              </Button>
+              <div className="flex w-full flex-col items-center gap-3">
+                <Button
+                  size="lg"
+                  onClick={handleStartCall}
+                  className="h-14 w-full max-w-sm transform rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 text-lg font-black tracking-wide text-white shadow-xl shadow-teal-800/20 transition active:scale-98 sm:h-16 dark:from-teal-500 dark:via-emerald-400 dark:to-teal-400 dark:text-slate-950 dark:shadow-[0_0_30px_rgba(20,184,166,0.45)]"
+                >
+                  🎙 Start Conversation
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isTriggeringOutbound}
+                  onClick={handleTriggerOutboundCall}
+                  className="w-full max-w-sm rounded-full border-teal-200/80 bg-teal-50/50 py-2.5 text-xs font-extrabold text-teal-800 transition hover:bg-teal-100 dark:border-teal-500/30 dark:bg-teal-950/40 dark:text-teal-300 dark:hover:bg-teal-900/60"
+                >
+                  {isTriggeringOutbound
+                    ? 'Initiating Call...'
+                    : '📞 Trigger Outbound Follow-up Call (Linphone)'}
+                </Button>
+                {outboundStatus && (
+                  <p className="text-center text-xs font-semibold text-teal-700 dark:text-teal-300">
+                    {outboundStatus}
+                  </p>
+                )}
+              </div>
             )}
           </div>
-
         </div>
 
         {/* RIGHT COLUMN: Realtime Live Transcript Box */}
-        <div className="relative backdrop-blur-2xl bg-white/90 dark:bg-slate-900/75 border border-teal-100 dark:border-teal-500/25 rounded-3xl p-5 sm:p-6 shadow-xl shadow-teal-900/5 dark:shadow-[0_0_40px_rgba(13,148,136,0.15)] flex flex-col justify-between transition-colors duration-300 min-h-[360px]">
-          
+        <div className="relative flex min-h-[360px] flex-col justify-between rounded-3xl border border-teal-100 bg-white/90 p-5 shadow-xl shadow-teal-900/5 backdrop-blur-2xl transition-colors duration-300 sm:p-6 dark:border-teal-500/25 dark:bg-slate-900/75 dark:shadow-[0_0_40px_rgba(13,148,136,0.15)]">
           {/* Transcript Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-teal-100 dark:border-teal-500/20 mb-3">
-            <span className="text-xs font-black text-teal-800 dark:text-teal-300 tracking-widest uppercase flex items-center gap-2">
-              <svg className="size-4 text-teal-600 dark:text-teal-400" fill="currentColor" viewBox="0 0 24 24">
+          <div className="mb-3 flex items-center justify-between border-b border-teal-100 pb-3 dark:border-teal-500/20">
+            <span className="flex items-center gap-2 text-xs font-black tracking-widest text-teal-800 uppercase dark:text-teal-300">
+              <svg
+                className="size-4 text-teal-600 dark:text-teal-400"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z" />
               </svg>
               Live Transcript
             </span>
-            <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/80 px-2.5 py-0.5 rounded-full border border-emerald-200/80 dark:border-emerald-500/30">
+            <span className="rounded-full border border-emerald-200/80 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-400">
               REALTIME STREAM
             </span>
           </div>
 
           {/* Transcript Stream Box */}
-          <div ref={transcriptScrollRef} className="flex-1 max-h-[320px] sm:max-h-[380px] overflow-y-auto space-y-3 pr-2 font-sans">
+          <div
+            ref={transcriptScrollRef}
+            className="max-h-[320px] flex-1 space-y-3 overflow-y-auto pr-2 font-sans sm:max-h-[380px]"
+          >
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 dark:text-slate-500 space-y-2">
-                <svg className="size-10 text-teal-400/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              <div className="flex h-full flex-col items-center justify-center space-y-2 p-6 text-center text-slate-400 dark:text-slate-500">
+                <svg
+                  className="size-10 text-teal-400/40"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
                 </svg>
-                <p className="text-xs font-semibold">Your live conversation transcript will appear here.</p>
-                <p className="text-[11px]">Start talking in English, Hindi, or Bengali once connected.</p>
+                <p className="text-xs font-semibold">
+                  Your live conversation transcript will appear here.
+                </p>
+                <p className="text-[11px]">
+                  Start talking in English, Hindi, or Bengali once connected.
+                </p>
               </div>
             ) : (
               messages.map((msg) => {
@@ -440,14 +615,16 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                     key={msg.id}
                     className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
                   >
-                    <span className={`text-[11px] font-bold pb-0.5 ${isUser ? 'text-teal-700 dark:text-teal-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                    <span
+                      className={`pb-0.5 text-[11px] font-bold ${isUser ? 'text-teal-700 dark:text-teal-300' : 'text-emerald-700 dark:text-emerald-300'}`}
+                    >
                       {isUser ? 'You' : 'Swasthya Sathi'}
                     </span>
                     <div
-                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm font-medium leading-relaxed shadow-2xs ${
+                      className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed font-medium shadow-2xs sm:text-sm ${
                         isUser
-                          ? 'bg-teal-600 dark:bg-teal-500 text-white dark:text-slate-950 font-semibold rounded-tr-xs'
-                          : 'bg-slate-100 dark:bg-slate-800/90 text-slate-800 dark:text-slate-100 border border-teal-100 dark:border-teal-500/30 rounded-tl-xs'
+                          ? 'rounded-tr-xs bg-teal-600 font-semibold text-white dark:bg-teal-500 dark:text-slate-950'
+                          : 'rounded-tl-xs border border-teal-100 bg-slate-100 text-slate-800 dark:border-teal-500/30 dark:bg-slate-800/90 dark:text-slate-100'
                       }`}
                     >
                       {msg.message}
@@ -457,24 +634,26 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
               })
             )}
             {agent.state === 'thinking' && (
-              <div className="flex items-center gap-2 text-xs font-bold text-teal-800 dark:text-teal-300 bg-teal-50 dark:bg-teal-950/60 p-2 rounded-xl border border-teal-200/80 dark:border-teal-500/30 w-fit">
-                <span className="size-2 rounded-full bg-teal-600 dark:bg-teal-400 animate-ping"></span>
+              <div className="flex w-fit items-center gap-2 rounded-xl border border-teal-200/80 bg-teal-50 p-2 text-xs font-bold text-teal-800 dark:border-teal-500/30 dark:bg-teal-950/60 dark:text-teal-300">
+                <span className="size-2 animate-ping rounded-full bg-teal-600 dark:bg-teal-400"></span>
                 Swasthya Sathi is processing...
               </div>
             )}
           </div>
 
           {/* Transcript Footer Helper */}
-          <div className="pt-2 border-t border-teal-100 dark:border-teal-500/20 text-[11px] text-slate-500 dark:text-slate-400 font-medium text-center">
+          <div className="border-t border-teal-100 pt-2 text-center text-[11px] font-medium text-slate-500 dark:border-teal-500/20 dark:text-slate-400">
             Automatic Speech Recognition &bull; Powered by LiveKit &amp; Murf Falcon
           </div>
         </div>
-
       </div>
 
       {/* Footer Medical Disclaimer */}
-      <footer className="w-full max-w-lg text-center text-[10px] sm:text-xs text-teal-800/80 dark:text-teal-300/70 font-medium py-1 z-10">
-        <p>Swasthya Sathi provides AI health support &amp; voice companion services. For medical emergencies, call emergency services immediately.</p>
+      <footer className="z-10 w-full max-w-lg py-1 text-center text-[10px] font-medium text-teal-800/80 sm:text-xs dark:text-teal-300/70">
+        <p>
+          Swasthya Sathi provides AI health support &amp; voice companion services. For medical
+          emergencies, call emergency services immediately.
+        </p>
       </footer>
     </div>
   );

@@ -1,19 +1,17 @@
-import os
 import json
-import math
 import logging
-import urllib.request
+import math
+import os
 import urllib.parse
+import urllib.request
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Any, Optional
 
 logger = logging.getLogger("agent.facility_lookup")
 
-from dotenv import load_dotenv
 
 # Earth radius in kilometers for Haversine formula
 EARTH_RADIUS_KM = 6371.0
-
 
 
 def haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -34,10 +32,14 @@ def geocode_location(location_name: str) -> Optional[tuple[float, float]]:
     """Geocode a city or area name to (lat, lon) using OpenStreetMap Nominatim."""
     try:
         query = urllib.parse.quote(location_name)
-        url = f"https://nominatim.openstreetmap.org/search?q={query}&format=json&limit=1"
+        url = (
+            f"https://nominatim.openstreetmap.org/search?q={query}&format=json&limit=1"
+        )
         req = urllib.request.Request(
             url,
-            headers={"User-Agent": "SwasthyaSathiVoiceAgent/1.0 (healthcare@swasthya-sathi.org)"},
+            headers={
+                "User-Agent": "SwasthyaSathiVoiceAgent/1.0 (healthcare@swasthya-sathi.org)"
+            },
         )
         with urllib.request.urlopen(req, timeout=5) as response:
             if response.status == 200:
@@ -55,11 +57,13 @@ def search_google_places(
     user_lat: Optional[float] = None,
     user_lon: Optional[float] = None,
     limit: int = 3,
-) -> Optional[List[Dict[str, Any]]]:
+) -> Optional[list[dict[str, Any]]]:
     """Search healthcare facilities using Google Places Text Search API."""
     try:
         encoded_query = urllib.parse.quote(query)
-        location_param = f"&location={user_lat},{user_lon}" if user_lat and user_lon else ""
+        location_param = (
+            f"&location={user_lat},{user_lon}" if user_lat and user_lon else ""
+        )
         url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={encoded_query}{location_param}&key={api_key}"
 
         req = urllib.request.Request(url)
@@ -70,19 +74,36 @@ def search_google_places(
                     results = data.get("results", [])[:limit]
                     facilities = []
                     for item in results:
-                        facility_lat = item.get("geometry", {}).get("location", {}).get("lat")
-                        facility_lon = item.get("geometry", {}).get("location", {}).get("lng")
+                        facility_lat = (
+                            item.get("geometry", {}).get("location", {}).get("lat")
+                        )
+                        facility_lon = (
+                            item.get("geometry", {}).get("location", {}).get("lng")
+                        )
 
                         distance_km = None
-                        if user_lat is not None and user_lon is not None and facility_lat is not None and facility_lon is not None:
-                            distance_km = haversine_distance(user_lat, user_lon, facility_lat, facility_lon)
+                        if (
+                            user_lat is not None
+                            and user_lon is not None
+                            and facility_lat is not None
+                            and facility_lon is not None
+                        ):
+                            distance_km = haversine_distance(
+                                user_lat, user_lon, facility_lat, facility_lon
+                            )
 
-                        facilities.append({
-                            "name": item.get("name", "Healthcare Facility"),
-                            "type": "Healthcare Facility",
-                            "address": item.get("formatted_address", "Address unavailable"),
-                            "distance_km": distance_km if distance_km is not None else 1.5,
-                        })
+                        facilities.append(
+                            {
+                                "name": item.get("name", "Healthcare Facility"),
+                                "type": "Healthcare Facility",
+                                "address": item.get(
+                                    "formatted_address", "Address unavailable"
+                                ),
+                                "distance_km": distance_km
+                                if distance_km is not None
+                                else 1.5,
+                            }
+                        )
                     return facilities
     except Exception as e:
         logger.error(f"Google Places API error: {e}")
@@ -95,9 +116,9 @@ def search_openstreetmap(
     user_lat: Optional[float] = None,
     user_lon: Optional[float] = None,
     limit: int = 3,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Search healthcare facilities using OpenStreetMap Nominatim API."""
-    facilities: List[Dict[str, Any]] = []
+    facilities: list[dict[str, Any]] = []
 
     # Prepare search queries
     search_queries = [
@@ -112,38 +133,62 @@ def search_openstreetmap(
             url = f"https://nominatim.openstreetmap.org/search?q={encoded_query}&format=json&addressdetails=1&limit={limit * 2}"
             req = urllib.request.Request(
                 url,
-                headers={"User-Agent": "SwasthyaSathiVoiceAgent/1.0 (healthcare@swasthya-sathi.org)"},
+                headers={
+                    "User-Agent": "SwasthyaSathiVoiceAgent/1.0 (healthcare@swasthya-sathi.org)"
+                },
             )
             with urllib.request.urlopen(req, timeout=6) as response:
                 if response.status == 200:
                     results = json.loads(response.read().decode("utf-8"))
                     for res in results:
-                        name = res.get("name") or res.get("display_name", "").split(",")[0]
+                        name = (
+                            res.get("name") or res.get("display_name", "").split(",")[0]
+                        )
                         if not name:
                             continue
 
                         # Filter or clean name
                         address_obj = res.get("address", {})
-                        city = address_obj.get("city") or address_obj.get("town") or address_obj.get("suburb") or location_name
+                        city = (
+                            address_obj.get("city")
+                            or address_obj.get("town")
+                            or address_obj.get("suburb")
+                            or location_name
+                        )
                         state = address_obj.get("state", "")
-                        postcode = address_obj.get("postcode", "")
-                        display_addr = res.get("display_name", f"{name}, {city}, {state}")
+                        address_obj.get("postcode", "")
+                        display_addr = res.get(
+                            "display_name", f"{name}, {city}, {state}"
+                        )
 
                         fac_lat = float(res.get("lat", 0))
                         fac_lon = float(res.get("lon", 0))
 
                         dist_km = None
-                        if user_lat is not None and user_lon is not None and fac_lat and fac_lon:
-                            dist_km = haversine_distance(user_lat, user_lon, fac_lat, fac_lon)
+                        if (
+                            user_lat is not None
+                            and user_lon is not None
+                            and fac_lat
+                            and fac_lon
+                        ):
+                            dist_km = haversine_distance(
+                                user_lat, user_lon, fac_lat, fac_lon
+                            )
 
                         # Avoid duplicate facility names
-                        if not any(f["name"].lower() == name.lower() for f in facilities):
-                            facilities.append({
-                                "name": name,
-                                "type": "Healthcare Facility",
-                                "address": display_addr,
-                                "distance_km": dist_km if dist_km is not None else 2.0,
-                            })
+                        if not any(
+                            f["name"].lower() == name.lower() for f in facilities
+                        ):
+                            facilities.append(
+                                {
+                                    "name": name,
+                                    "type": "Healthcare Facility",
+                                    "address": display_addr,
+                                    "distance_km": dist_km
+                                    if dist_km is not None
+                                    else 2.0,
+                                }
+                            )
 
                         if len(facilities) >= limit:
                             break
@@ -166,11 +211,13 @@ def is_facility_api_disabled() -> bool:
     env_local_path = os.path.join(backend_dir, ".env.local")
     if os.path.exists(env_local_path):
         try:
-            with open(env_local_path, "r", encoding="utf-8") as f:
+            with open(env_local_path, encoding="utf-8") as f:
                 for line in f:
                     line = line.strip()
                     if line.startswith("DISABLE_FACILITY_API="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                        val = (
+                            line.split("=", 1)[1].strip().strip('"').strip("'").lower()
+                        )
                         if val in ("true", "1", "yes"):
                             return True
         except Exception:
@@ -184,13 +231,15 @@ def find_nearby_facilities(
     lon: Optional[float] = None,
     facility_type: str = "government hospital",
     limit: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Search nearby healthcare facilities from real map data sources.
     Returns a clean structured JSON response with ISO timestamp.
     """
     if is_facility_api_disabled() or location == "TRIGGER_FAILURE":
-        logger.info("Facility lookup failure mode triggered via DISABLE_FACILITY_API flag.")
+        logger.info(
+            "Facility lookup failure mode triggered via DISABLE_FACILITY_API flag."
+        )
         return {
             "success": False,
             "status": "API_TEMPORARILY_UNAVAILABLE",
@@ -210,7 +259,9 @@ def find_nearby_facilities(
         }
 
     loc_label = location or f"{lat:.4f}, {lon:.4f}"
-    logger.info(f"Looking up facilities: location='{loc_label}', type='{facility_type}', limit={limit}")
+    logger.info(
+        f"Looking up facilities: location='{loc_label}', type='{facility_type}', limit={limit}"
+    )
 
     # Resolve coordinates if location string was passed but lat/lon missing
     if (lat is None or lon is None) and location:
@@ -219,14 +270,16 @@ def find_nearby_facilities(
             lat, lon = coords
 
     google_api_key = os.getenv("GOOGLE_MAPS_API_KEY", "").strip()
-    facilities: List[Dict[str, Any]] = []
+    facilities: list[dict[str, Any]] = []
     source = "OpenStreetMap"
 
     try:
         # Try Google Places API if key is configured
         if google_api_key:
             g_query = f"{facility_type} in {location}" if location else facility_type
-            g_results = search_google_places(g_query, google_api_key, user_lat=lat, user_lon=lon, limit=limit)
+            g_results = search_google_places(
+                g_query, google_api_key, user_lat=lat, user_lon=lon, limit=limit
+            )
             if g_results is not None:
                 facilities = g_results
                 source = "Google Places"

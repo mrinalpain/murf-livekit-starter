@@ -1,5 +1,6 @@
 import os
 import sys
+
 import pytest
 
 # Ensure src is in python path
@@ -7,12 +8,11 @@ src_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if src_dir not in sys.path:
     sys.path.insert(0, src_dir)
 
-from facility_lookup import (
+from agent import Assistant  # noqa: E402
+from facility_lookup import (  # noqa: E402
     find_nearby_facilities,
     haversine_distance,
-    geocode_location,
 )
-from agent import Assistant
 
 
 def test_haversine_distance():
@@ -27,7 +27,10 @@ def test_missing_location_returns_location_required():
     res = find_nearby_facilities(location=None, lat=None, lon=None)
     assert res["success"] is False
     assert res.get("location_required") is True
-    assert "unavailable" in res.get("message", "").lower() or "ask" in res.get("message", "").lower()
+    assert (
+        "unavailable" in res.get("message", "").lower()
+        or "ask" in res.get("message", "").lower()
+    )
 
 
 def test_failure_simulation_mode():
@@ -50,7 +53,9 @@ def test_failure_simulation_mode():
 
 def test_real_facility_lookup_bhubaneswar():
     """Verify real facility lookup for a known city returns structured results with retrieved_at timestamp."""
-    res = find_nearby_facilities(location="Bhubaneswar", facility_type="government hospital", limit=2)
+    res = find_nearby_facilities(
+        location="Bhubaneswar", facility_type="government hospital", limit=2
+    )
     assert res["success"] is True
     assert "retrieved_at" in res
     assert "source" in res
@@ -66,7 +71,9 @@ def test_real_facility_lookup_bhubaneswar():
 def test_real_facility_lookup_coordinates():
     """Verify facility lookup using explicit latitude and longitude coordinates."""
     # Mumbai coordinates
-    res = find_nearby_facilities(lat=19.0760, lon=72.8777, facility_type="hospital", limit=2)
+    res = find_nearby_facilities(
+        lat=19.0760, lon=72.8777, facility_type="hospital", limit=2
+    )
     assert res["success"] is True
     assert "retrieved_at" in res
     assert isinstance(res["facilities"], list)

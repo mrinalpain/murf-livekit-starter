@@ -318,7 +318,53 @@ Results are retrieved live at the moment of request. The tool outputs a `retriev
 
 ---
 
-## Links
+## Day 6: Outbound Calls Using Linphone
+
+### Outbound Use Case
+Swasthya Sathi provides **outbound healthcare follow-up calls** to check on users after a health consultation. For example, if a user reported leg pain preventing walking and agreed to a check-in call, Swasthya Sathi calls them back via SIP.
+
+### Linphone & LiveKit SIP Setup
+- **Telephony Provider**: Uses **Linphone** via LiveKit SIP Trunking (`livekit-server-sdk` / `livekit.api.CreateSIPParticipantRequest`).
+- **No Twilio**: Strictly relies on the pre-configured Linphone SIP trunk and destination.
+
+### Environment Variables
+| Variable | Description | Example |
+| --- | --- | --- |
+| `LIVEKIT_SIP_TRUNK_ID` | LiveKit SIP outbound trunk ID | `ST_xxxxxxxxxxxx` |
+| `LINPHONE_SIP_URI` | Linphone destination SIP URI | `sip:username@sip.linphone.org` |
+| `SIP_OUTBOUND_HOST` | SIP outbound proxy host | `sip.linphone.org` |
+| `OUTBOUND_TEST_DESTINATION` | Optional test destination override | `sip:username@sip.linphone.org` |
+| `OUTBOUND_TEST_MODE` | Set to `true` for development test mode | `true` |
+
+### Explicit Consent & Opt-Out Flow
+1. **Consent Required**: Follow-up calls are scheduled (`schedule_health_followup`) ONLY after the caller gives explicit consent ("Would you like me to call you tomorrow?").
+2. **Minimal Storage**: Records stored in SQLite `follow_ups` table contain minimal reason strings (e.g. *"Follow-up after health consultation"*) and no detailed transcripts or medical notes.
+3. **Opt-Out Control**: If the user says *"Don't call me again"* or *"Stop calling me"*, the agent invokes `cancel_health_followup` to mark all pending follow-ups as `cancelled` in SQLite.
+
+### Outbound Agent Greeting Structure
+When Linphone rings and the call connects, the agent immediately delivers a 4-part greeting:
+1. **Who is calling**: *"Namaste, this is Swasthya Sathi, your healthcare voice assistant."*
+2. **Why calling**: *"I'm calling to follow up on the health concern we discussed earlier."*
+3. **How to stop calls**: *"If you don't want to receive these follow-up calls, just tell me and I'll stop."*
+4. **Ask permission**: *"Is this a good time to talk?"*
+
+- If user says **No**: *"Of course. I'll end the call now. Take care."* (Ends call gracefully).
+- If user says **Yes**: Follow-up consultation (*"How are you feeling today?"* → *"Were you able to consult a doctor?"*).
+
+### Triggering an Outbound Test Call
+**Method 1 — CLI Script (Backend):**
+```bash
+cd backend
+uv run python src/make_outbound_call.py --destination sip:username@sip.linphone.org
+```
+
+**Method 2 — Web Interface (Frontend):**
+Open `http://localhost:3000` and click the **📞 Trigger Outbound Follow-up Call (Linphone)** button on the welcome screen.
+
+### Failure Handling & Limitations
+- If Linphone is offline or the SIP URI is unreachable, the attempt is logged and updated to `failed` or `no_answer` in SQLite.
+- The system never enters infinite retry loops or auto-spams calls.
+
 
 - [Murf API Docs](https://murf.ai/api/docs)
 - [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)

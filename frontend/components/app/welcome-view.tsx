@@ -1,3 +1,6 @@
+'use client';
+
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 function WelcomeImage() {
@@ -28,6 +31,33 @@ export const WelcomeView = ({
   onStartCall,
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
+  const [outboundStatus, setOutboundStatus] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleTriggerOutboundCall = async () => {
+    setLoading(true);
+    setOutboundStatus(null);
+    try {
+      const res = await fetch('/api/outbound', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reason: 'Follow-up after health consultation',
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setOutboundStatus('Outbound call initiated! Linphone should ring shortly.');
+      } else {
+        setOutboundStatus(`Call failed: ${data.error || 'Unknown error'}`);
+      }
+    } catch (err) {
+      setOutboundStatus(`Call failed: ${err instanceof Error ? err.message : 'Error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div ref={ref}>
       <section className="bg-background flex flex-col items-center justify-center text-center">
@@ -44,6 +74,21 @@ export const WelcomeView = ({
         >
           {startButtonText}
         </Button>
+
+        <div className="mt-4 flex flex-col items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={loading}
+            onClick={handleTriggerOutboundCall}
+            className="rounded-full text-xs font-medium"
+          >
+            {loading ? 'Initiating Call...' : '📞 Trigger Outbound Follow-up Call (Linphone)'}
+          </Button>
+          {outboundStatus && (
+            <p className="text-muted-foreground mt-1 font-mono text-xs">{outboundStatus}</p>
+          )}
+        </div>
       </section>
 
       <div className="fixed bottom-5 left-0 flex w-full items-center justify-center">
