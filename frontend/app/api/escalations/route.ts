@@ -22,10 +22,18 @@ function getDbConnection() {
       language TEXT,
       preferred_follow_up TEXT,
       status TEXT NOT NULL DEFAULT 'open',
+      assigned_to TEXT,
+      internal_notes TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
   `);
+  try {
+    db.exec(`ALTER TABLE escalations ADD COLUMN assigned_to TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE escalations ADD COLUMN internal_notes TEXT;`);
+  } catch {}
   return db;
 }
 

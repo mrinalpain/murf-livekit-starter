@@ -67,11 +67,19 @@ def init_db() -> None:
                 language TEXT,
                 preferred_follow_up TEXT,
                 status TEXT NOT NULL DEFAULT 'open',
+                assigned_to TEXT,
+                internal_notes TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             );
             """
         )
+        # Migration for existing databases
+        for col_def in ["assigned_to TEXT", "internal_notes TEXT"]:
+            try:
+                cursor.execute(f"ALTER TABLE escalations ADD COLUMN {col_def};")
+            except sqlite3.OperationalError:
+                logger.debug(f"Column {col_def} already exists in escalations table.")
         conn.commit()
         conn.close()
         logger.info(f"Database initialized successfully at {DB_PATH}")
@@ -371,7 +379,7 @@ def get_all_escalations() -> list[dict[str, Any]]:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT id, reference_id, user_id, summary, urgency, language, preferred_follow_up, status, created_at, updated_at FROM escalations ORDER BY id DESC;"
+            "SELECT id, reference_id, user_id, summary, urgency, language, preferred_follow_up, status, assigned_to, internal_notes, created_at, updated_at FROM escalations ORDER BY id DESC;"
         )
         rows = cursor.fetchall()
         conn.close()
@@ -381,25 +389,54 @@ def get_all_escalations() -> list[dict[str, Any]]:
         return []
 
 
-def update_escalation_status_db(ref_id_or_id: str, status: str) -> bool:
-    """Update the status of an escalation request by reference_id or id."""
-    valid_statuses = {"open", "in_progress", "resolved", "cancelled"}
-    clean_status = (status or "open").lower().strip()
-    if clean_status not in valid_statuses:
+def update_escalation_details_db(
+    ref_id_or_id: str,
+    status: Optional[str] = None,
+    assigned_to: Optional[str] = None,
+    internal_notes: Optional[str] = None,
+) -> bool:
+    """Update details (status, assigned staff, notes) of an escalation request."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updates = []
+    params = []
+
+    if status is not None:
+        valid_statuses = {"open", "in_progress", "resolved", "cancelled"}
+        clean_status = (status or "open").lower().strip()
+        if clean_status in valid_statuses:
+            updates.append("status = ?")
+            params.append(clean_status)
+
+    if assigned_to is not None:
+        updates.append("assigned_to = ?")
+        params.append(assigned_to.strip())
+
+    if internal_notes is not None:
+        updates.append("internal_notes = ?")
+        params.append(internal_notes.strip())
+
+    if not updates:
         return False
 
-    now_iso = datetime.now(timezone.utc).isoformat()
+    updates.append("updated_at = ?")
+    params.append(now_iso)
+
+    params.extend([str(ref_id_or_id), str(ref_id_or_id)])
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "UPDATE escalations SET status = ?, updated_at = ? WHERE reference_id = ? OR id = ?;",
-            (clean_status, now_iso, str(ref_id_or_id), str(ref_id_or_id)),
-        )
+        query = f"UPDATE escalations SET {', '.join(updates)} WHERE reference_id = ? OR id = ?;"
+        cursor.execute(query, tuple(params))
         success = cursor.rowcount > 0
         conn.commit()
         conn.close()
         return success
     except Exception as e:
-        logger.error(f"Failed to update escalation status: {e}")
+        logger.error(f"Failed to update escalation details: {e}")
         return False
+
+
+def update_escalation_status_db(ref_id_or_id: str, status: str) -> bool:
+    """Backwards compatible helper to update status."""
+    return update_escalation_details_db(ref_id_or_id, status=status)
