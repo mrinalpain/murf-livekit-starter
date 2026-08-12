@@ -1,5 +1,6 @@
 import logging
 import os
+import random
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any, Optional
@@ -21,7 +22,7 @@ def get_db_connection() -> sqlite3.Connection:
 
 
 def init_db() -> None:
-    """Initialize the SQLite database and ensure the users table exists."""
+    """Initialize the SQLite database and ensure tables exist."""
     try:
         os.makedirs(DB_DIR, exist_ok=True)
         conn = get_db_connection()
@@ -52,6 +53,22 @@ def init_db() -> None:
                 consent INTEGER,
                 created_at TEXT,
                 updated_at TEXT
+            );
+            """
+        )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS escalations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reference_id TEXT UNIQUE NOT NULL,
+                user_id TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                urgency TEXT NOT NULL,
+                language TEXT,
+                preferred_follow_up TEXT,
+                status TEXT NOT NULL DEFAULT 'open',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
             """
         )
@@ -270,4 +287,119 @@ def cancel_user_followups(user_id: str) -> bool:
         return True
     except Exception as e:
         logger.error(f"Failed to cancel follow-ups for user_id={user_id}: {e}")
+        return False
+
+
+def generate_unique_reference_id(conn: sqlite3.Connection) -> str:
+    """Generate a unique reference ID in the format SS-XXXX."""
+    cursor = conn.cursor()
+    for _ in range(100):
+        ref_num = random.randint(1000, 9999)
+        ref_id = f"SS-{ref_num}"
+        cursor.execute("SELECT 1 FROM escalations WHERE reference_id = ?;", (ref_id,))
+        if not cursor.fetchone():
+            return ref_id
+    # Fallback to timestamp-based if collisions occur
+    return f"SS-{int(datetime.now().timestamp()) % 10000:04d}"
+
+
+def create_escalation_record(
+    user_id: str,
+    summary: str,
+    urgency: str = "medium",
+    language: Optional[str] = None,
+    preferred_follow_up: Optional[str] = None,
+) -> dict[str, Any]:
+    """Create a human escalation record in SQLite and return structured response."""
+    if not user_id or not summary or not summary.strip():
+        return {
+            "success": False,
+            "message": "Unable to create the escalation request.",
+        }
+
+    valid_urgencies = {"low", "medium", "high", "emergency"}
+    clean_urgency = (urgency or "medium").lower().strip()
+    if clean_urgency not in valid_urgencies:
+        clean_urgency = "medium"
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    try:
+        conn = get_db_connection()
+        ref_id = generate_unique_reference_id(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO escalations (
+                reference_id, user_id, summary, urgency, language, preferred_follow_up, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """,
+            (
+                ref_id,
+                user_id,
+                summary.strip(),
+                clean_urgency,
+                language or "English",
+                preferred_follow_up or "Phone",
+                "open",
+                now_iso,
+                now_iso,
+            ),
+        )
+        conn.commit()
+        conn.close()
+        logger.info(
+            f"Created escalation request ref={ref_id} user_id={user_id} urgency={clean_urgency}"
+        )
+        return {
+            "success": True,
+            "reference_id": ref_id,
+            "urgency": clean_urgency,
+            "status": "open",
+        }
+    except Exception as e:
+        logger.error(f"Failed to create escalation request: {e}")
+        return {
+            "success": False,
+            "message": "Unable to create the escalation request.",
+        }
+
+
+def get_all_escalations() -> list[dict[str, Any]]:
+    """Retrieve all human escalation requests from SQLite."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT id, reference_id, user_id, summary, urgency, language, preferred_follow_up, status, created_at, updated_at FROM escalations ORDER BY id DESC;"
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Failed to fetch escalations: {e}")
+        return []
+
+
+def update_escalation_status_db(ref_id_or_id: str, status: str) -> bool:
+    """Update the status of an escalation request by reference_id or id."""
+    valid_statuses = {"open", "in_progress", "resolved", "cancelled"}
+    clean_status = (status or "open").lower().strip()
+    if clean_status not in valid_statuses:
+        return False
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE escalations SET status = ?, updated_at = ? WHERE reference_id = ? OR id = ?;",
+            (clean_status, now_iso, str(ref_id_or_id), str(ref_id_or_id)),
+        )
+        success = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        return success
+    except Exception as e:
+        logger.error(f"Failed to update escalation status: {e}")
         return False

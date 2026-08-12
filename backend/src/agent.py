@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import time
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -23,6 +22,7 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
 from db import (
     cancel_user_followups,
+    create_escalation_record,
     create_followup,
     get_user_memory,
     init_db,
@@ -315,6 +315,57 @@ class Assistant(Agent):
             return {
                 "success": False,
                 "error": "Healthcare facility lookup is temporarily unavailable.",
+            }
+
+    @function_tool
+    async def create_escalation(
+        self,
+        context: RunContext,
+        summary: str,
+        urgency: str = "medium",
+        language: Optional[str] = None,
+        preferred_follow_up: Optional[str] = None,
+        user_id: Optional[str] = None,
+    ):
+        """Create a human healthcare escalation request in the system after receiving explicit caller consent.
+
+        MUST ONLY be called after:
+        1. Explaining to the caller what information will be shared with a human healthcare professional.
+        2. Asking for explicit caller consent ("Would you like me to share those details?").
+        3. Receiving explicit caller agreement ("Yes", "Sure", "Okay").
+
+        DO NOT call this tool if:
+        - The caller has not been asked for consent.
+        - The caller refused consent ("No").
+        - The caller is having a normal health conversation without emergency or diagnosis escalation triggers.
+
+        Args:
+            summary: Privacy-safe short summary of the issue (e.g. 'Severe chest pain and difficulty breathing. Recommended emergency care.')
+            urgency: Urgency level ('emergency', 'high', 'medium', 'low')
+            language: Caller's spoken language, e.g. 'English', 'Hindi', 'Bengali'
+            preferred_follow_up: Preferred follow-up method, e.g. 'Phone', 'Clinic Visit'
+            user_id: Unique caller identifier (optional, auto-detected if omitted)
+        """
+        caller_id = resolve_user_id(context, user_id)
+        logger.info(
+            f"Tool create_escalation called: user_id={caller_id}, "
+            f"urgency='{urgency}', language='{language}'"
+        )
+        try:
+            res = create_escalation_record(
+                user_id=caller_id,
+                summary=summary,
+                urgency=urgency,
+                language=language,
+                preferred_follow_up=preferred_follow_up,
+            )
+            logger.info(f"create_escalation tool result: {res}")
+            return res
+        except Exception as e:
+            logger.error(f"create_escalation tool exception: {e}")
+            return {
+                "success": False,
+                "message": "Unable to create the escalation request.",
             }
 
 

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Track } from 'livekit-client';
 import { AnimatePresence, motion } from 'motion/react';
 import {
@@ -66,6 +67,19 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
     }
   }, [messages, agent.state]);
 
+  // Detect if an escalation reference ID was generated in the conversation
+  const escalationRefId = React.useMemo(() => {
+    for (const m of messages) {
+      if (m.message && m.message.includes('SS-')) {
+        const match = m.message.match(/SS-\d{4}/);
+        if (match) {
+          return match[0];
+        }
+      }
+    }
+    return null;
+  }, [messages]);
+
   // Monitor agent failure reasons
   useEffect(() => {
     if (agent.state === 'failed') {
@@ -129,9 +143,10 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
   const handleEndCall = async () => {
     try {
       await end();
-    } catch (err) {
-      console.error('Error ending session:', err);
+    } catch (e) {
+      console.error('Error ending call:', e);
     } finally {
+      setIsStartingCall(false);
       setCallEndedState(true);
     }
   };
@@ -190,6 +205,12 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
 
         {/* Right Controls */}
         <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800 transition hover:bg-teal-100 dark:border-teal-500/30 dark:bg-teal-950/70 dark:text-teal-300 dark:hover:bg-teal-900/80"
+          >
+            <span>📋 Escalation Dashboard</span>
+          </Link>
           <ThemeToggle className="scale-90" />
         </div>
       </header>
@@ -480,6 +501,23 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
 
           {/* Primary Action Buttons */}
           <div className="flex flex-col items-center gap-3 pt-2">
+            {escalationRefId && (
+              <div className="flex w-full max-w-sm items-center justify-between rounded-xl border border-amber-300 bg-amber-50/90 px-3.5 py-2 text-xs font-bold text-amber-900 shadow-2xs dark:border-amber-500/40 dark:bg-amber-950/80 dark:text-amber-200">
+                <div className="flex items-center gap-2">
+                  <span className="size-2 animate-pulse rounded-full bg-amber-600 dark:bg-amber-400" />
+                  <span>Human Request Sent</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-extrabold">{escalationRefId}</span>
+                  <Link
+                    href="/dashboard"
+                    className="underline hover:text-amber-700 dark:hover:text-amber-300"
+                  >
+                    View
+                  </Link>
+                </div>
+              </div>
+            )}
             {micBlocked || connectionFailed ? (
               <Button
                 size="lg"
