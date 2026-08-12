@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/app/theme-toggle';
 
 interface Escalation {
   id: number;
@@ -138,14 +139,14 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
       {/* Header Banner */}
-      <header className="sticky top-0 z-20 border-b border-teal-200/60 bg-white/85 backdrop-blur-md dark:border-teal-500/20 dark:bg-slate-900/85">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-900/85">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3.5 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-xl font-black text-white shadow-md shadow-teal-900/20">
+            <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-xl font-black text-white shadow-md shadow-teal-900/20 dark:from-emerald-500 dark:to-teal-400">
               ✚
             </div>
             <div>
-              <h1 className="text-lg font-black tracking-tight text-teal-900 sm:text-xl dark:text-teal-200">
+              <h1 className="bg-gradient-to-r from-slate-900 via-teal-950 to-emerald-900 bg-clip-text text-lg font-black tracking-tight text-transparent sm:text-xl dark:from-white dark:via-teal-100 dark:to-emerald-300">
                 Swasthya Sathi
               </h1>
               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -178,10 +179,12 @@ export default function DashboardPage() {
 
             <Link
               href="/"
-              className="rounded-full bg-teal-600 px-4 py-1.5 text-xs font-black text-white transition hover:bg-teal-700 active:scale-95 dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400"
+              className="rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 px-4 py-1.5 text-xs font-black text-white shadow-sm transition hover:from-teal-500 hover:to-emerald-500 active:scale-95 dark:from-teal-500 dark:to-emerald-500 dark:text-slate-950 dark:hover:from-teal-400 dark:hover:to-emerald-400"
             >
               ← Back to Voice Agent
             </Link>
+
+            <ThemeToggle size="md" />
           </div>
         </div>
       </header>

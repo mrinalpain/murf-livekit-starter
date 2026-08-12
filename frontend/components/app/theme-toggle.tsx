@@ -1,59 +1,80 @@
 'use client';
 
+import * as React from 'react';
 import { useTheme } from 'next-themes';
 import { MonitorIcon, MoonIcon, SunIcon } from '@phosphor-icons/react';
 import { cn } from '@/lib/shadcn/utils';
 
 interface ThemeToggleProps {
   className?: string;
+  size?: 'sm' | 'md';
 }
 
-export function ThemeToggle({ className }: ThemeToggleProps) {
+export function ThemeToggle({ className, size = 'md' }: ThemeToggleProps) {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const options = [
+    {
+      value: 'light',
+      label: 'Light mode',
+      icon: SunIcon,
+    },
+    {
+      value: 'dark',
+      label: 'Dark mode',
+      icon: MoonIcon,
+    },
+    {
+      value: 'system',
+      label: 'System theme',
+      icon: MonitorIcon,
+    },
+  ] as const;
 
   return (
     <div
+      role="group"
+      aria-label="Theme preference toggle"
       className={cn(
-        'text-foreground bg-background flex w-full flex-row justify-end divide-x overflow-hidden rounded-full border',
+        'inline-flex items-center rounded-full border border-slate-200/80 bg-slate-100/80 p-1 backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-900/80 shadow-xs',
         className
       )}
     >
-      <span className="sr-only">Color scheme toggle</span>
-      <button type="button" onClick={() => setTheme('dark')} className="cursor-pointer p-1 pl-1.5">
-        <span className="sr-only">Enable dark color scheme</span>
-        <MoonIcon
-          suppressHydrationWarning
-          size={16}
-          weight="bold"
-          className={cn(theme !== 'dark' && 'opacity-25')}
-        />
-      </button>
-      <button
-        type="button"
-        onClick={() => setTheme('light')}
-        className="cursor-pointer px-1.5 py-1"
-      >
-        <span className="sr-only">Enable light color scheme</span>
-        <SunIcon
-          suppressHydrationWarning
-          size={16}
-          weight="bold"
-          className={cn(theme !== 'light' && 'opacity-25')}
-        />
-      </button>
-      <button
-        type="button"
-        onClick={() => setTheme('system')}
-        className="cursor-pointer p-1 pr-1.5"
-      >
-        <span className="sr-only">Enable system color scheme</span>
-        <MonitorIcon
-          suppressHydrationWarning
-          size={16}
-          weight="bold"
-          className={cn(theme !== 'system' && 'opacity-25')}
-        />
-      </button>
+      {options.map((opt) => {
+        const Icon = opt.icon;
+        // Handle SSR gracefully: before mounting, don't show active state to prevent hydration mismatch
+        const isActive = mounted && theme === opt.value;
+
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            title={opt.label}
+            aria-label={opt.label}
+            aria-pressed={isActive}
+            onClick={() => setTheme(opt.value)}
+            className={cn(
+              'relative flex items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
+              size === 'sm' ? 'px-2 py-1 text-xs' : 'px-2.5 py-1 text-xs font-semibold',
+              isActive
+                ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-400 font-bold scale-105'
+                : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+            )}
+          >
+            <Icon
+              size={size === 'sm' ? 14 : 16}
+              weight={isActive ? 'bold' : 'regular'}
+              className="transition-transform duration-200"
+            />
+            <span className="sr-only">{opt.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

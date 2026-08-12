@@ -175,43 +175,63 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
       <div className="pointer-events-none absolute right-1/4 bottom-10 z-0 size-[350px] rounded-full bg-emerald-400/10 blur-[100px] dark:bg-emerald-500/10" />
 
       {/* Top Navigation Bar Header */}
-      <header className="z-20 mb-1 flex w-full max-w-6xl items-center justify-between border-b border-teal-100/60 px-2 py-2 dark:border-teal-500/20">
-        {/* Left Logo & App Title */}
-        <div className="flex items-center gap-3">
-          <div className="flex size-10 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-600/20 dark:bg-emerald-500">
-            <svg className="size-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-            </svg>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-extrabold tracking-tight text-slate-900 sm:text-xl dark:text-white">
-                Swasthya Sathi
-              </h1>
-              <span className="rounded-full border border-emerald-200 bg-emerald-100 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wide text-emerald-800 uppercase dark:border-emerald-500/30 dark:bg-emerald-950/80 dark:text-emerald-300">
-                VOICE COMPANION
+      <header className="z-30 w-full max-w-6xl rounded-2xl border border-slate-200/80 bg-white/80 p-2.5 shadow-sm backdrop-blur-xl transition-all duration-300 dark:border-slate-800/80 dark:bg-slate-900/80 dark:shadow-teal-950/30">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          {/* Left Logo & App Title */}
+          <div className="flex items-center gap-3">
+            <div className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-md shadow-emerald-500/25 ring-1 ring-white/20 dark:from-emerald-500 dark:to-teal-400">
+              <svg className="size-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              <span className="absolute -top-0.5 -right-0.5 flex size-2.5">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex size-2.5 rounded-full bg-emerald-400"></span>
               </span>
             </div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-              Your voice companion for everyday health
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="bg-gradient-to-r from-slate-900 via-teal-950 to-emerald-900 bg-clip-text text-base font-black tracking-tight text-transparent sm:text-lg dark:from-white dark:via-teal-100 dark:to-emerald-300">
+                  Swasthya Sathi
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-extrabold tracking-wider text-emerald-700 uppercase dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
+                  <span className="size-1.5 animate-pulse rounded-full bg-emerald-500 dark:bg-emerald-400" />
+                  Voice Companion
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                Your voice companion for everyday health
+              </p>
+            </div>
           </div>
-        </div>
 
-        {/* Center Language Indicator Pill */}
-        <div className="hidden items-center rounded-full border border-slate-200/80 bg-white/80 px-4 py-1.5 text-xs font-bold text-slate-700 shadow-2xs md:flex dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300">
-          English &bull; हिंदी &bull; বাংলা
-        </div>
+          {/* Center Language Indicator Pill & Tech Badge */}
+          <div className="hidden items-center gap-2 lg:flex">
+            <div className="flex items-center gap-1.5 rounded-full border border-teal-200/80 bg-teal-50/80 px-3.5 py-1 text-xs font-bold text-teal-900 shadow-2xs dark:border-teal-800/80 dark:bg-teal-950/60 dark:text-teal-200">
+              <span className="text-teal-600 dark:text-teal-400">🌐</span>
+              <span>English &bull; हिंदी &bull; বাংলা</span>
+            </div>
+            <a
+              target="_blank"
+              rel="noopener noreferrer"
+              href="https://docs.livekit.io/agents"
+              className="rounded-full border border-slate-200/70 bg-slate-100/60 px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:bg-slate-200/80 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-800/60 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
+              LiveKit &amp; Murf AI
+            </a>
+          </div>
 
-        {/* Right Controls */}
-        <div className="flex items-center gap-2">
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-xs font-bold text-teal-800 transition hover:bg-teal-100 dark:border-teal-500/30 dark:bg-teal-950/70 dark:text-teal-300 dark:hover:bg-teal-900/80"
-          >
-            <span>📋 Escalation Dashboard</span>
-          </Link>
-          <ThemeToggle className="scale-90" />
+          {/* Right Controls */}
+          <div className="flex items-center gap-2.5">
+            <Link
+              href="/dashboard"
+              className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-md shadow-teal-600/20 transition-all duration-200 hover:from-teal-500 hover:to-emerald-500 hover:shadow-lg hover:shadow-teal-600/30 active:scale-95 dark:from-teal-500 dark:to-emerald-500 dark:text-slate-950 dark:hover:from-teal-400 dark:hover:to-emerald-400"
+            >
+              <span className="transition-transform group-hover:scale-110">📋</span>
+              <span>Escalation Dashboard</span>
+            </Link>
+
+            <ThemeToggle size="md" />
+          </div>
         </div>
       </header>
 
