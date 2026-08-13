@@ -74,6 +74,23 @@ def init_db() -> None:
             );
             """
         )
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS calls (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                call_id TEXT UNIQUE NOT NULL,
+                user_id TEXT,
+                channel TEXT NOT NULL DEFAULT 'browser',
+                language TEXT DEFAULT 'Unknown',
+                started_at TEXT NOT NULL,
+                ended_at TEXT,
+                duration_seconds INTEGER DEFAULT 0,
+                outcome TEXT DEFAULT 'failed',
+                outcome_reason TEXT DEFAULT 'unknown',
+                created_at TEXT NOT NULL
+            );
+            """
+        )
         # Migration for existing databases
         for col_def in ["assigned_to TEXT", "internal_notes TEXT"]:
             try:

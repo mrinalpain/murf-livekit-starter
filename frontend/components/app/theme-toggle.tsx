@@ -41,7 +41,7 @@ export function ThemeToggle({ className, size = 'md' }: ThemeToggleProps) {
       role="group"
       aria-label="Theme preference toggle"
       className={cn(
-        'inline-flex items-center rounded-full border border-slate-200/80 bg-slate-100/80 p-1 backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-900/80 shadow-xs',
+        'inline-flex items-center rounded-full border border-slate-200/80 bg-slate-100/80 p-1 shadow-xs backdrop-blur-md transition-colors dark:border-slate-800/80 dark:bg-slate-900/80',
         className
       )}
     >
@@ -59,10 +59,10 @@ export function ThemeToggle({ className, size = 'md' }: ThemeToggleProps) {
             aria-pressed={isActive}
             onClick={() => setTheme(opt.value)}
             className={cn(
-              'relative flex items-center justify-center rounded-full transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500',
+              'relative flex items-center justify-center rounded-full transition-all duration-200 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none',
               size === 'sm' ? 'px-2 py-1 text-xs' : 'px-2.5 py-1 text-xs font-semibold',
               isActive
-                ? 'bg-white text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-400 font-bold scale-105'
+                ? 'scale-105 bg-white font-bold text-emerald-700 shadow-sm dark:bg-slate-800 dark:text-emerald-400'
                 : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
             )}
           >

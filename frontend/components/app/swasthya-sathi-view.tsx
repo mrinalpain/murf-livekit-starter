@@ -179,7 +179,7 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           {/* Left Logo & App Title */}
           <div className="flex items-center gap-3">
-            <div className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-md shadow-emerald-500/25 ring-1 ring-white/20 dark:from-emerald-500 dark:to-teal-400">
+            <div className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 via-teal-600 to-emerald-500 text-white shadow-md ring-1 shadow-emerald-500/25 ring-white/20 dark:from-emerald-500 dark:to-teal-400">
               <svg className="size-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
               </svg>
@@ -223,11 +223,19 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
           {/* Right Controls */}
           <div className="flex items-center gap-2.5">
             <Link
+              href="/analytics"
+              className="group flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3.5 py-1.5 text-xs font-extrabold text-teal-800 transition hover:bg-teal-100 active:scale-95 dark:border-teal-500/30 dark:bg-teal-950/60 dark:text-teal-300 dark:hover:bg-teal-900/80"
+            >
+              <span className="transition-transform group-hover:scale-110">📊</span>
+              <span>Call Analytics</span>
+            </Link>
+
+            <Link
               href="/dashboard"
               className="group flex items-center gap-1.5 rounded-full bg-gradient-to-r from-teal-600 to-emerald-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-md shadow-teal-600/20 transition-all duration-200 hover:from-teal-500 hover:to-emerald-500 hover:shadow-lg hover:shadow-teal-600/30 active:scale-95 dark:from-teal-500 dark:to-emerald-500 dark:text-slate-950 dark:hover:from-teal-400 dark:hover:to-emerald-400"
             >
               <span className="transition-transform group-hover:scale-110">📋</span>
-              <span>Escalation Dashboard</span>
+              <span>Escalations</span>
             </Link>
 
             <ThemeToggle size="md" />

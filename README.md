@@ -365,6 +365,57 @@ Open `http://localhost:3000` and click the **📞 Trigger Outbound Follow-up Cal
 - If Linphone is offline or the SIP URI is unreachable, the attempt is logged and updated to `failed` or `no_answer` in SQLite.
 - The system never enters infinite retry loops or auto-spams calls.
 
+---
+
+## Day 8: Call Analytics Dashboard
+
+### Success Definition
+For **Swasthya Sathi**, a call's outcome is evaluated based on actual interaction completion:
+- **Successful Call**:
+  - Safe healthcare guidance was successfully provided to the caller, OR
+  - A valid human escalation request was created.
+- **Failed Call**:
+  - The caller disconnects before receiving useful guidance (`user_hangup` / `incomplete_conversation`).
+  - Conversation ends before the caller's objective is completed (`incomplete_conversation`).
+  - A required tool fails and the request cannot be completed (`tool_failure`).
+  - The call drops or fails before the objective is achieved (`connection_failure` / `no_response`).
+  - The agent cannot complete the requested interaction (`unknown`).
+
+### Analytics Database & Privacy Guarantees
+Calls are recorded in SQLite (`swasthya_sathi.db`) under the `calls` table:
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `id` | `INTEGER` | Primary key |
+| `call_id` | `TEXT` | Unique call identifier (LiveKit room name) |
+| `user_id` | `TEXT` | Caller identifier |
+| `channel` | `TEXT` | Channel type (`browser` or `sip`) |
+| `language` | `TEXT` | Spoken language (`English`, `Hindi`, `Bengali`, `Unknown`) |
+| `started_at` | `TEXT` | Call start timestamp (ISO 8601) |
+| `ended_at` | `TEXT` | Call end timestamp (ISO 8601) |
+| `duration_seconds` | `INTEGER` | Call duration in seconds |
+| `outcome` | `TEXT` | Healthcare outcome (`success` or `failed`) |
+| `outcome_reason` | `TEXT` | Reason (`guidance_provided`, `human_escalation`, `incomplete_conversation`, `tool_failure`, `no_response`, etc.) |
+| `created_at` | `TEXT` | Record creation timestamp |
+
+> **Privacy Rule**: The analytics database and public dashboard store **only** non-sensitive metadata and outcomes. Conversation transcripts, medical symptoms, clinical notes, phone numbers, OTPs, PINs, and personal identifiers are strictly excluded.
+
+### Dynamic Metrics & Analytics Page
+Access the dedicated **Call Analytics Dashboard** at `/analytics` (or click **📊 Call Analytics** in the header).
+
+Required Hero Metrics (clearly visible without scrolling on desktop):
+1. **TOTAL CALLS**: `SELECT COUNT(*) FROM calls`
+2. **SUCCESSFUL CALLS**: `SELECT COUNT(*) WHERE outcome = 'success'`
+3. **FAILED CALLS**: `SELECT COUNT(*) WHERE outcome = 'failed'`
+4. **SUCCESS RATE**: `(successful_calls / total_calls) * 100` (handles 0 calls safely as `0%`)
+
+Features:
+- **Real-time Live Refresh**: Auto-polls SQLite every 5 seconds + manual refresh button.
+- **Recent Call History Table**: Lists call metadata (`Time`, `Channel`, `Language`, `Duration`, `Outcome`, `Reason`).
+- **Channel & Outcome Filters**: Filter by Browser/SIP and Success/Failed outcomes.
+- **Resilient Teardown**: Call records are saved on call end even if unexpected disconnects occur, and analytics errors never crash the agent process.
+
+---
 
 - [Murf API Docs](https://murf.ai/api/docs)
 - [Murf Voice Library](https://murf.ai/api/docs/voices-styles/voice-library)

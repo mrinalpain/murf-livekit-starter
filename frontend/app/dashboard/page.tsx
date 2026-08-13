@@ -41,10 +41,12 @@ export default function DashboardPage() {
   // Web Audio chime synthesizer
   const playEmergencyChime = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
-      
+
       const now = ctx.currentTime;
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
@@ -78,9 +80,14 @@ export default function DashboardPage() {
 
         // Check for new emergency items
         const newEmergencies = fetched.filter((e) => e.urgency.toLowerCase() === 'emergency');
-        if (newEmergencies.length > prevEmergencyCountRef.current && prevEmergencyCountRef.current !== 0) {
+        if (
+          newEmergencies.length > prevEmergencyCountRef.current &&
+          prevEmergencyCountRef.current !== 0
+        ) {
           const latestEmergency = newEmergencies[0];
-          setEmergencyAlert(`🚨 NEW EMERGENCY CASE RECEIVED (${latestEmergency.reference_id}): ${latestEmergency.summary}`);
+          setEmergencyAlert(
+            `🚨 NEW EMERGENCY CASE RECEIVED (${latestEmergency.reference_id}): ${latestEmergency.summary}`
+          );
           if (audioAlertEnabled) {
             playEmergencyChime();
           }
@@ -102,7 +109,10 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [audioAlertEnabled]);
 
-  const handleUpdateDetails = async (refId: string, payload: { status?: string; assigned_to?: string; internal_notes?: string }) => {
+  const handleUpdateDetails = async (
+    refId: string,
+    payload: { status?: string; assigned_to?: string; internal_notes?: string }
+  ) => {
     setUpdatingId(refId);
     try {
       const res = await fetch(`/api/escalations/${refId}`, {
@@ -296,6 +306,13 @@ export default function DashboardPage() {
               </svg>
               {loading ? 'Refreshing...' : 'Refresh'}
             </button>
+
+            <Link
+              href="/analytics"
+              className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs font-extrabold text-slate-700 transition hover:bg-slate-200 active:scale-95 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <span>📊 Call Analytics</span>
+            </Link>
 
             <Link
               href="/"
@@ -495,7 +512,9 @@ export default function DashboardPage() {
                                 👤 {item.assigned_to}
                               </span>
                             ) : (
-                              <span className="text-[11px] font-semibold text-slate-400 italic">Unassigned</span>
+                              <span className="text-[11px] font-semibold text-slate-400 italic">
+                                Unassigned
+                              </span>
                             )}
                           </td>
                           <td className="px-4 py-3.5 font-semibold whitespace-nowrap text-slate-600 dark:text-slate-400">
@@ -535,14 +554,19 @@ export default function DashboardPage() {
                         {isExpanded && (
                           <tr className="bg-teal-50/40 dark:bg-slate-900/90">
                             <td colSpan={8} className="p-4 sm:p-6">
-                              <div className="rounded-2xl border border-teal-200/70 bg-white p-4 shadow-sm sm:p-5 dark:border-teal-500/30 dark:bg-slate-850">
+                              <div className="dark:bg-slate-850 rounded-2xl border border-teal-200/70 bg-white p-4 shadow-sm sm:p-5 dark:border-teal-500/30">
                                 <div className="mb-4 flex flex-wrap items-center justify-between border-b border-slate-100 pb-3 dark:border-slate-800">
                                   <div>
                                     <h4 className="text-sm font-black text-slate-900 dark:text-white">
-                                      Case Details &amp; Medical Operator Actions: {item.reference_id}
+                                      Case Details &amp; Medical Operator Actions:{' '}
+                                      {item.reference_id}
                                     </h4>
                                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                                      Caller ID: <span className="font-mono text-slate-700 dark:text-slate-300">{item.user_id}</span> | Created: {new Date(item.created_at).toLocaleString()}
+                                      Caller ID:{' '}
+                                      <span className="font-mono text-slate-700 dark:text-slate-300">
+                                        {item.user_id}
+                                      </span>{' '}
+                                      | Created: {new Date(item.created_at).toLocaleString()}
                                     </p>
                                   </div>
                                   <span className="text-xs font-bold text-teal-700 dark:text-teal-300">
@@ -564,17 +588,21 @@ export default function DashboardPage() {
                                       className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-teal-500 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                                     />
                                     <div className="mt-2 flex flex-wrap gap-1.5">
-                                      <span className="text-[10px] font-bold text-slate-400">Presets:</span>
-                                      {['Dr. Ananya Roy', 'Nurse Rajiv Sharma', 'Duty Officer'].map((name) => (
-                                        <button
-                                          key={name}
-                                          type="button"
-                                          onClick={() => setEditAssignedStaff(name)}
-                                          className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                                        >
-                                          {name}
-                                        </button>
-                                      ))}
+                                      <span className="text-[10px] font-bold text-slate-400">
+                                        Presets:
+                                      </span>
+                                      {['Dr. Ananya Roy', 'Nurse Rajiv Sharma', 'Duty Officer'].map(
+                                        (name) => (
+                                          <button
+                                            key={name}
+                                            type="button"
+                                            onClick={() => setEditAssignedStaff(name)}
+                                            className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                          >
+                                            {name}
+                                          </button>
+                                        )
+                                      )}
                                     </div>
                                   </div>
 

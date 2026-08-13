@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 
 from dotenv import load_dotenv
@@ -20,6 +21,7 @@ from livekit.agents import (
 from livekit.plugins import deepgram, google, murf, noise_cancellation, silero
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
 
+from analytics import end_call, start_call
 from db import (
     cancel_user_followups,
     create_escalation_record,
@@ -37,6 +39,40 @@ load_dotenv(".env.local")
 
 # Initialize SQLite database on startup
 init_db()
+
+
+class CallTracker:
+    def __init__(
+        self,
+        call_id: str,
+        channel: str = "browser",
+        user_id: str = "caller_default",
+        language: str = "Unknown",
+    ) -> None:
+        self.call_id = call_id
+        self.channel = channel
+        self.user_id = user_id
+        self.language = language
+        self.started_at = datetime.now(timezone.utc)
+        self.guidance_provided = False
+        self.escalation_created = False
+        self.tool_failed = False
+        self.user_spoke = False
+        self.agent_spoke = False
+
+
+def get_session_tracker(context: RunContext) -> Optional[CallTracker]:
+    """Helper to access CallTracker attached to active AgentSession."""
+    if context and hasattr(context, "session") and context.session:
+        try:
+            ud = context.session.userdata
+            if isinstance(ud, dict):
+                return ud.get("tracker")
+            elif isinstance(ud, CallTracker):
+                return ud
+        except ValueError:
+            return None
+    return None
 
 
 def resolve_user_id(context: RunContext, user_id: Optional[str] = None) -> str:
@@ -100,10 +136,15 @@ class Assistant(Agent):
             user_id: Unique identifier for the caller (optional, auto-detected if omitted)
         """
         caller_id = resolve_user_id(context, user_id)
+        tracker = get_session_tracker(context)
+        if tracker:
+            tracker.user_id = caller_id
         logger.info(f"Looking up caller user_id={caller_id}")
         try:
             record = get_user_memory(caller_id)
             if record:
+                if tracker and record.get("language_preference"):
+                    tracker.language = record.get("language_preference")
                 logger.info(f"Returning caller found user_id={caller_id}")
                 return {
                     "status": "returning_caller",
@@ -149,6 +190,11 @@ class Assistant(Agent):
             last_triage_outcome: Triage outcome or health summary (optional)
         """
         caller_id = resolve_user_id(context, user_id)
+        tracker = get_session_tracker(context)
+        if tracker:
+            tracker.user_id = caller_id
+            if language_preference:
+                tracker.language = language_preference
         logger.info(
             f"Memory consent received. Saving caller memory user_id={caller_id}"
         )
@@ -297,6 +343,7 @@ class Assistant(Agent):
             f"lat={user_lat}, lon={user_lon}, facility_type='{facility_type}', limit={limit}"
         )
 
+        tracker = get_session_tracker(context)
         try:
             result = find_nearby_facilities(
                 location=target_location,
@@ -305,12 +352,20 @@ class Assistant(Agent):
                 facility_type=facility_type or "government hospital",
                 limit=limit or 3,
             )
+            if result.get("success"):
+                if tracker:
+                    tracker.guidance_provided = True
+            else:
+                if tracker:
+                    tracker.tool_failed = True
             logger.info(
                 f"Facility lookup result: success={result.get('success')}, "
                 f"count={len(result.get('facilities', [])) if result.get('facilities') else 0}"
             )
             return result
         except Exception as e:
+            if tracker:
+                tracker.tool_failed = True
             logger.error(f"Facility lookup tool exception: {e}")
             return {
                 "success": False,
@@ -347,6 +402,7 @@ class Assistant(Agent):
             user_id: Unique caller identifier (optional, auto-detected if omitted)
         """
         caller_id = resolve_user_id(context, user_id)
+        tracker = get_session_tracker(context)
         logger.info(
             f"Tool create_escalation called: user_id={caller_id}, "
             f"urgency='{urgency}', language='{language}'"
@@ -359,6 +415,11 @@ class Assistant(Agent):
                 language=language,
                 preferred_follow_up=preferred_follow_up,
             )
+            if res.get("success") and tracker:
+                tracker.escalation_created = True
+                tracker.guidance_provided = True
+                if language:
+                    tracker.language = language
             logger.info(f"create_escalation tool result: {res}")
             return res
         except Exception as e:
@@ -410,6 +471,29 @@ async def my_agent(ctx: JobContext):
             "First call lookup_user to check for saved caller name and language preference."
         )
 
+    call_id = ctx.room.name
+    is_sip = is_outbound
+    if not is_sip and (
+        ctx.room.name.startswith("sip-")
+        or (ctx.room.metadata and "sip" in ctx.room.metadata.lower())
+    ):
+        is_sip = True
+
+    channel = "sip" if is_sip else "browser"
+    start_call(
+        call_id=call_id,
+        user_id="caller_default",
+        channel=channel,
+        language="Unknown",
+    )
+
+    tracker = CallTracker(
+        call_id=call_id,
+        channel=channel,
+        user_id="caller_default",
+        language="Unknown",
+    )
+
     # Set up voice AI pipeline using Murf Falcon, Gemini, Deepgram, and Multilingual VAD
     session = AgentSession(
         stt=deepgram.STT(model="nova-3", language="multi"),
@@ -424,6 +508,72 @@ async def my_agent(ctx: JobContext):
         vad=ctx.proc.userdata["vad"],
         preemptive_generation=True,
     )
+
+    session.userdata = {"tracker": tracker}
+
+    # Event listeners for call tracking
+    def _on_conversation_item(ev=None):
+        if ev and hasattr(ev, "item"):
+            role = str(getattr(ev.item, "role", "")).lower()
+            if role in ("user", "human"):
+                tracker.user_spoke = True
+            elif role in ("assistant", "system"):
+                tracker.agent_spoke = True
+        if (tracker.user_spoke or tracker.agent_spoke) and not tracker.tool_failed:
+            tracker.guidance_provided = True
+
+    def _on_user_input(ev=None):
+        tracker.user_spoke = True
+        if not tracker.tool_failed:
+            tracker.guidance_provided = True
+
+    def _on_user_state_changed(ev=None):
+        tracker.user_spoke = True
+        if not tracker.tool_failed:
+            tracker.guidance_provided = True
+
+    try:
+        session.on("user_input_transcribed", _on_user_input)
+        session.on("conversation_item_added", _on_conversation_item)
+        session.on("user_state_changed", _on_user_state_changed)
+    except Exception as e:
+        logger.warning(f"Could not attach session event listeners: {e}")
+
+    async def _on_shutdown(reason: str = "") -> None:
+        ended_at_dt = datetime.now(timezone.utc)
+        duration_sec = max(0, int((ended_at_dt - tracker.started_at).total_seconds()))
+
+        if tracker.escalation_created:
+            outcome = "success"
+            outcome_reason = "human_escalation"
+        elif (
+            tracker.guidance_provided
+            or tracker.user_spoke
+            or tracker.agent_spoke
+            or duration_sec >= 10
+        ) and not tracker.tool_failed:
+            outcome = "success"
+            outcome_reason = "guidance_provided"
+        elif tracker.tool_failed:
+            outcome = "failed"
+            outcome_reason = "tool_failure"
+        elif not tracker.user_spoke and duration_sec < 5:
+            outcome = "failed"
+            outcome_reason = "no_response"
+        else:
+            outcome = "failed"
+            outcome_reason = "incomplete_conversation"
+
+        end_call(
+            call_id=tracker.call_id,
+            outcome=outcome,
+            outcome_reason=outcome_reason,
+            ended_at=ended_at_dt.isoformat(),
+            duration_seconds=duration_sec,
+            language=tracker.language,
+        )
+
+    ctx.add_shutdown_callback(_on_shutdown)
 
     # Start session immediately so agent joins room without blocking
     await session.start(
