@@ -31,7 +31,7 @@ from db import (
     save_user_memory,
 )
 from facility_lookup import find_nearby_facilities
-from prompt import SYSTEM_PROMPT
+from prompt import CLINIC_SPECIALIST_PROMPT, SYSTEM_PROMPT
 
 logger = logging.getLogger("agent")
 
@@ -59,6 +59,15 @@ class CallTracker:
         self.tool_failed = False
         self.user_spoke = False
         self.agent_spoke = False
+        self.agent_path: list[str] = ["main"]
+
+    def record_agent(self, agent_name: str) -> None:
+        if not self.agent_path or self.agent_path[-1] != agent_name:
+            self.agent_path.append(agent_name)
+
+    @property
+    def agent_path_str(self) -> str:
+        return " → ".join(self.agent_path) if self.agent_path else "main"
 
 
 def get_session_tracker(context: RunContext) -> Optional[CallTracker]:
@@ -429,6 +438,200 @@ class Assistant(Agent):
                 "message": "Unable to create the escalation request.",
             }
 
+    @function_tool
+    async def transfer_to_clinic_specialist(self, context: RunContext):
+        """Transfer the conversation to the Clinic and Appointment Specialist when the user needs help specifically with healthcare facility selection, clinic questions, doctor appointments, appointment scheduling, preferred appointment dates/times, or appointment-related information.
+
+        Do not use this handoff for general health questions, symptom guidance, diagnosis requests, medication questions, or emergency situations.
+        """
+        logger.info("Main agent transferring to Clinic and Appointment Specialist")
+        tracker = get_session_tracker(context)
+        if tracker:
+            tracker.record_agent("clinic_specialist")
+            tracker.guidance_provided = True
+
+        session = context.session
+        if not session:
+            return "I couldn't connect you to the clinic specialist right now, but I can still help with what I can."
+
+        clinic_agent = None
+        if isinstance(session.userdata, dict):
+            clinic_agent = session.userdata.get("clinic_agent")
+        if not clinic_agent:
+            clinic_agent = ClinicAppointmentAgent()
+            if isinstance(session.userdata, dict):
+                session.userdata["clinic_agent"] = clinic_agent
+
+        try:
+            # Voice announcement before handoff
+            await session.say(
+                "I can help with that. I'll connect you with our clinic and appointment specialist."
+            )
+            # Perform LiveKit native agent handoff
+            session.update_agent(clinic_agent)
+            return (
+                "Handoff complete. You are now the active Swasthya Sathi Clinic and Appointment Specialist speaking directly to the caller. "
+                "Introduce yourself immediately as the clinic specialist, acknowledge what the user requested from prior history, "
+                "and ask your follow-up questions regarding preferred appointment date, time, or location right away."
+            )
+        except Exception as e:
+            logger.error(f"Failed to hand off to clinic specialist: {e}")
+            if tracker:
+                tracker.tool_failed = True
+            return "I couldn't connect you to the clinic specialist right now, but I can still help with what I can."
+
+
+class ClinicAppointmentAgent(Agent):
+    def __init__(self, instructions: str = CLINIC_SPECIALIST_PROMPT) -> None:
+        super().__init__(instructions=instructions)
+
+    @function_tool
+    async def lookup_user(self, context: RunContext, user_id: Optional[str] = None):
+        """Retrieve stored caller information using their user_id.
+
+        Args:
+            user_id: Unique identifier for the caller (optional, auto-detected if omitted)
+        """
+        caller_id = resolve_user_id(context, user_id)
+        tracker = get_session_tracker(context)
+        if tracker:
+            tracker.user_id = caller_id
+        logger.info(f"Specialist looking up caller user_id={caller_id}")
+        try:
+            record = get_user_memory(caller_id)
+            if record:
+                if tracker and record.get("language_preference"):
+                    tracker.language = record.get("language_preference")
+                logger.info(f"Specialist returning caller found user_id={caller_id}")
+                return {
+                    "status": "returning_caller",
+                    "user_id": caller_id,
+                    "name": record.get("name"),
+                    "language_preference": record.get("language_preference"),
+                    "age_band": record.get("age_band"),
+                    "last_triage_outcome": record.get("last_triage_outcome"),
+                    "last_interaction": record.get("last_interaction"),
+                }
+            else:
+                logger.info(f"Specialist new caller user_id={caller_id}")
+                return {
+                    "status": "new_caller",
+                    "user_id": caller_id,
+                    "message": "Caller is new. No prior memory found.",
+                }
+        except Exception as e:
+            logger.error(f"Specialist memory lookup failed user_id={caller_id}: {e}")
+            return {
+                "status": "new_caller",
+                "user_id": caller_id,
+                "message": "Memory temporarily unavailable.",
+            }
+
+    @function_tool
+    async def find_nearby_healthcare_facility(
+        self,
+        context: RunContext,
+        location: Optional[str] = None,
+        facility_type: Optional[str] = "government hospital",
+        limit: int = 3,
+    ):
+        """Find nearby real healthcare facilities such as government hospitals, Primary Health Centres (PHC), Community Health Centres (CHC), clinics, or health centres.
+
+        Use this tool ONLY when:
+        - The user asks for a nearby healthcare facility, hospital, PHC, CHC, clinic, or health centre.
+
+        Do NOT fabricate facility information.
+        Requires a location. If location is unknown and not auto-detected from caller context, ask the caller for their city or area first.
+
+        Args:
+            location: City, area name, landmark, or coordinates (optional if auto-detected from caller context)
+            facility_type: Type of facility requested, e.g. 'government hospital', 'PHC', 'CHC', 'clinic', 'hospital'
+            limit: Maximum number of facilities to return (default 3)
+        """
+        user_lat, user_lon, auto_loc = resolve_user_location(context)
+        target_location = location or auto_loc
+
+        if target_location and target_location.lower().strip() in (
+            "near me",
+            "my location",
+            "here",
+            "current location",
+        ):
+            target_location = auto_loc
+
+        logger.info(
+            f"Specialist find_nearby_healthcare_facility: location='{target_location}', "
+            f"lat={user_lat}, lon={user_lon}, facility_type='{facility_type}', limit={limit}"
+        )
+
+        tracker = get_session_tracker(context)
+        try:
+            result = find_nearby_facilities(
+                location=target_location,
+                lat=user_lat,
+                lon=user_lon,
+                facility_type=facility_type or "government hospital",
+                limit=limit or 3,
+            )
+            if result.get("success"):
+                if tracker:
+                    tracker.guidance_provided = True
+            else:
+                if tracker:
+                    tracker.tool_failed = True
+            logger.info(
+                f"Specialist facility lookup result: success={result.get('success')}, "
+                f"count={len(result.get('facilities', [])) if result.get('facilities') else 0}"
+            )
+            return result
+        except Exception as e:
+            if tracker:
+                tracker.tool_failed = True
+            logger.error(f"Specialist facility lookup exception: {e}")
+            return {
+                "success": False,
+                "error": "Healthcare facility lookup is temporarily unavailable.",
+            }
+
+    @function_tool
+    async def transfer_to_main_assistant(self, context: RunContext):
+        """Transfer the conversation back to the main Swasthya Sathi health assistant when the user asks about general health guidance, common symptoms (fever, cold, cough, headache), medication questions, health schemes, or non-appointment topics.
+
+        Do not use this tool if the user is still asking about clinics, hospitals, or appointments.
+        """
+        logger.info("Specialist transferring back to Main Healthcare Assistant")
+        tracker = get_session_tracker(context)
+        if tracker:
+            tracker.record_agent("main")
+            tracker.guidance_provided = True
+
+        session = context.session
+        if not session:
+            return "I couldn't transfer you back right now, but I can still help."
+
+        main_agent = None
+        if isinstance(session.userdata, dict):
+            main_agent = session.userdata.get("main_agent")
+        if not main_agent:
+            main_agent = Assistant()
+            if isinstance(session.userdata, dict):
+                session.userdata["main_agent"] = main_agent
+
+        try:
+            # Voice announcement to user before reverse handoff
+            await session.say(
+                "I'll connect you back with our main healthcare assistant."
+            )
+            # Switch active agent in session back to main agent
+            session.update_agent(main_agent)
+            return (
+                "Handoff complete. You are now the main Swasthya Sathi Healthcare Assistant speaking directly to the caller. "
+                "Acknowledge the caller's symptom or health question directly from history and provide guidance or ask relevant follow-up questions."
+            )
+        except Exception as e:
+            logger.error(f"Failed reverse handoff to main assistant: {e}")
+            return "I couldn't transfer you back right now, but I can still help."
+
 
 server = AgentServer()
 
@@ -480,18 +683,19 @@ async def my_agent(ctx: JobContext):
         is_sip = True
 
     channel = "sip" if is_sip else "browser"
-    start_call(
-        call_id=call_id,
-        user_id="caller_default",
-        channel=channel,
-        language="Unknown",
-    )
-
     tracker = CallTracker(
         call_id=call_id,
         channel=channel,
         user_id="caller_default",
         language="Unknown",
+    )
+
+    start_call(
+        call_id=call_id,
+        user_id="caller_default",
+        channel=channel,
+        language="Unknown",
+        agent_path=tracker.agent_path_str,
     )
 
     # Set up voice AI pipeline using Murf Falcon, Gemini, Deepgram, and Multilingual VAD
@@ -509,7 +713,14 @@ async def my_agent(ctx: JobContext):
         preemptive_generation=True,
     )
 
-    session.userdata = {"tracker": tracker}
+    main_agent = Assistant(instructions=instructions)
+    clinic_agent = ClinicAppointmentAgent()
+
+    session.userdata = {
+        "tracker": tracker,
+        "main_agent": main_agent,
+        "clinic_agent": clinic_agent,
+    }
 
     # Event listeners for call tracking
     def _on_conversation_item(ev=None):
@@ -571,13 +782,14 @@ async def my_agent(ctx: JobContext):
             ended_at=ended_at_dt.isoformat(),
             duration_seconds=duration_sec,
             language=tracker.language,
+            agent_path=tracker.agent_path_str,
         )
 
     ctx.add_shutdown_callback(_on_shutdown)
 
     # Start session immediately so agent joins room without blocking
     await session.start(
-        agent=Assistant(instructions=instructions),
+        agent=main_agent,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

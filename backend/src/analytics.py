@@ -12,6 +12,7 @@ def start_call(
     user_id: Optional[str] = None,
     channel: str = "browser",
     language: str = "Unknown",
+    agent_path: str = "main",
 ) -> bool:
     """Record the start of a call in the calls table.
 
@@ -26,6 +27,7 @@ def start_call(
         clean_channel = "browser"
 
     clean_language = (language or "Unknown").strip()
+    clean_path = (agent_path or "main").strip()
 
     try:
         conn = get_db_connection()
@@ -33,18 +35,20 @@ def start_call(
         cursor.execute(
             """
             INSERT INTO calls (
-                call_id, user_id, channel, language, started_at, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                call_id, user_id, channel, language, agent_path, started_at, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(call_id) DO UPDATE SET
                 user_id = COALESCE(excluded.user_id, calls.user_id),
                 channel = excluded.channel,
-                language = COALESCE(excluded.language, calls.language);
+                language = COALESCE(excluded.language, calls.language),
+                agent_path = COALESCE(excluded.agent_path, calls.agent_path);
             """,
             (
                 call_id,
                 user_id or "caller_default",
                 clean_channel,
                 clean_language,
+                clean_path,
                 now_iso,
                 now_iso,
             ),
@@ -52,7 +56,7 @@ def start_call(
         conn.commit()
         conn.close()
         logger.info(
-            f"Analytics: started call call_id={call_id} channel={clean_channel}"
+            f"Analytics: started call call_id={call_id} channel={clean_channel} agent_path={clean_path}"
         )
         return True
     except Exception as e:
@@ -81,6 +85,7 @@ def end_call(
     ended_at: Optional[str] = None,
     duration_seconds: Optional[int] = None,
     language: Optional[str] = None,
+    agent_path: Optional[str] = None,
 ) -> bool:
     """Record the completion and outcome of a call.
 
@@ -132,6 +137,10 @@ def end_call(
             updates.append("language = ?")
             params.append(language.strip())
 
+        if agent_path and agent_path.strip():
+            updates.append("agent_path = ?")
+            params.append(agent_path.strip())
+
         params.append(call_id)
 
         query = f"UPDATE calls SET {', '.join(updates)} WHERE call_id = ?;"
@@ -143,14 +152,15 @@ def end_call(
             cursor.execute(
                 """
                 INSERT INTO calls (
-                    call_id, user_id, channel, language, started_at, ended_at, duration_seconds, outcome, outcome_reason, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                    call_id, user_id, channel, language, agent_path, started_at, ended_at, duration_seconds, outcome, outcome_reason, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
                 """,
                 (
                     call_id,
                     "caller_default",
                     "browser",
                     language or "Unknown",
+                    agent_path or "main",
                     now_iso,
                     end_iso,
                     calc_duration or 0,
@@ -163,11 +173,12 @@ def end_call(
 
         conn.close()
         logger.info(
-            f"Analytics: ended call call_id={call_id} outcome={clean_outcome} reason={clean_reason} duration={calc_duration}s"
+            f"Analytics: ended call call_id={call_id} outcome={clean_outcome} reason={clean_reason} duration={calc_duration}s agent_path={agent_path}"
         )
         return True
     except Exception as e:
         logger.error(f"Analytics error in end_call for call_id={call_id}: {e}")
+        return False
         return False
 
 
@@ -219,7 +230,7 @@ def get_recent_calls(limit: int = 50) -> list[dict[str, Any]]:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, call_id, user_id, channel, language, started_at, ended_at, duration_seconds, outcome, outcome_reason, created_at
+            SELECT id, call_id, user_id, channel, language, agent_path, started_at, ended_at, duration_seconds, outcome, outcome_reason, created_at
             FROM calls
             ORDER BY id DESC
             LIMIT ?;

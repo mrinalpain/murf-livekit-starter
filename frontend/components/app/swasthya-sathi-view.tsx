@@ -80,6 +80,29 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
     return null;
   }, [messages]);
 
+  // Detect active agent (Clinic Specialist vs Main Assistant)
+  const isClinicSpecialist = React.useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const text = (messages[i].message || '').toLowerCase();
+      if (
+        text.includes('clinic specialist') ||
+        text.includes('appointment specialist') ||
+        text.includes('clinic and appointment specialist') ||
+        text.includes('hospital and appointment')
+      ) {
+        return true;
+      }
+      if (
+        text.includes('main healthcare assistant') ||
+        text.includes('main assistant') ||
+        text.includes('connect you back')
+      ) {
+        return false;
+      }
+    }
+    return false;
+  }, [messages]);
+
   // Monitor agent failure reasons
   useEffect(() => {
     if (agent.state === 'failed') {
@@ -326,12 +349,19 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                 >
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-300 bg-teal-100 px-3.5 py-0.5 text-[11px] font-extrabold text-teal-900 shadow-2xs dark:border-teal-400/50 dark:bg-teal-950/90 dark:text-teal-200 dark:shadow-[0_0_15px_rgba(20,184,166,0.3)]">
-                    <span className="size-2 animate-pulse rounded-full bg-teal-600 dark:bg-teal-400"></span>
-                    AGENT ACTIVE
-                  </span>
+                  {isClinicSpecialist ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-100 px-3.5 py-0.5 text-[11px] font-extrabold text-sky-900 shadow-2xs dark:border-sky-400/50 dark:bg-sky-950/90 dark:text-sky-200 dark:shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                      <span className="size-2 animate-pulse rounded-full bg-sky-600 dark:bg-sky-400"></span>
+                      CLINIC &amp; APPOINTMENT SPECIALIST
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-teal-300 bg-teal-100 px-3.5 py-0.5 text-[11px] font-extrabold text-teal-900 shadow-2xs dark:border-teal-400/50 dark:bg-teal-950/90 dark:text-teal-200 dark:shadow-[0_0_15px_rgba(20,184,166,0.3)]">
+                      <span className="size-2 animate-pulse rounded-full bg-teal-600 dark:bg-teal-400"></span>
+                      MAIN HEALTHCARE ASSISTANT
+                    </span>
+                  )}
                   <h2 className="mt-1 text-xl font-black text-teal-900 sm:text-2xl dark:text-teal-200">
-                    🔊 Swasthya Sathi is speaking...
+                    🔊 {isClinicSpecialist ? 'Clinic Specialist' : 'Swasthya Sathi'} is speaking...
                   </h2>
                 </motion.div>
               ) : isListening ? (
@@ -341,10 +371,17 @@ export function SwasthyaSathiView({ appConfig }: SwasthyaSathiViewProps) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                 >
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3.5 py-0.5 text-[11px] font-extrabold text-emerald-900 shadow-2xs dark:border-emerald-400/50 dark:bg-emerald-950/90 dark:text-emerald-200 dark:shadow-[0_0_15px_rgba(52,211,153,0.3)]">
-                    <span className="size-2 animate-ping rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
-                    YOUR TURN TO SPEAK
-                  </span>
+                  {isClinicSpecialist ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-sky-300 bg-sky-100 px-3.5 py-0.5 text-[11px] font-extrabold text-sky-900 shadow-2xs dark:border-sky-400/50 dark:bg-sky-950/90 dark:text-sky-200 dark:shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                      <span className="size-2 animate-ping rounded-full bg-sky-600 dark:bg-sky-400"></span>
+                      CLINIC SPECIALIST LISTENING
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3.5 py-0.5 text-[11px] font-extrabold text-emerald-900 shadow-2xs dark:border-emerald-400/50 dark:bg-emerald-950/90 dark:text-emerald-200 dark:shadow-[0_0_15px_rgba(52,211,153,0.3)]">
+                      <span className="size-2 animate-ping rounded-full bg-emerald-600 dark:bg-emerald-400"></span>
+                      YOUR TURN TO SPEAK
+                    </span>
+                  )}
                   <h2 className="mt-1 text-xl font-black text-emerald-900 sm:text-2xl dark:text-emerald-300">
                     🎙 Listening to you...
                   </h2>

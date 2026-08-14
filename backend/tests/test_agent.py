@@ -1,11 +1,15 @@
 import pytest
-from livekit.agents import AgentSession, inference, llm
+from dotenv import load_dotenv
+from livekit.agents import AgentSession, llm
+from livekit.plugins import google
 
 from agent import Assistant
 
+load_dotenv(".env.local")
+
 
 def _llm() -> llm.LLM:
-    return inference.LLM(model="openai/gpt-4.1-mini")
+    return google.LLM(model="gemini-3.5-flash-lite")
 
 
 @pytest.mark.asyncio

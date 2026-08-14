@@ -87,6 +87,7 @@ def init_db() -> None:
                 duration_seconds INTEGER DEFAULT 0,
                 outcome TEXT DEFAULT 'failed',
                 outcome_reason TEXT DEFAULT 'unknown',
+                agent_path TEXT DEFAULT 'main',
                 created_at TEXT NOT NULL
             );
             """
@@ -97,6 +98,14 @@ def init_db() -> None:
                 cursor.execute(f"ALTER TABLE escalations ADD COLUMN {col_def};")
             except sqlite3.OperationalError:
                 logger.debug(f"Column {col_def} already exists in escalations table.")
+
+        try:
+            cursor.execute(
+                "ALTER TABLE calls ADD COLUMN agent_path TEXT DEFAULT 'main';"
+            )
+        except sqlite3.OperationalError:
+            logger.debug("Column agent_path already exists in calls table.")
+
         conn.commit()
         conn.close()
         logger.info(f"Database initialized successfully at {DB_PATH}")

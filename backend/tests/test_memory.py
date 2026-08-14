@@ -10,18 +10,26 @@ if src_dir not in sys.path:
 
 import contextlib  # noqa: E402
 
-from db import DB_PATH, get_user_memory, init_db, save_user_memory  # noqa: E402
+from db import (  # noqa: E402
+    DB_PATH,
+    get_db_connection,
+    get_user_memory,
+    init_db,
+    save_user_memory,
+)
 
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
-    """Initialize DB and clean up after tests."""
+    """Initialize DB and clean up test records before tests."""
     init_db()
+    with contextlib.suppress(Exception):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM users WHERE user_id LIKE 'caller_test_%';")
+        conn.commit()
+        conn.close()
     yield
-    # Cleanup database file after test if needed or leave for verification
-    if os.path.exists(DB_PATH):
-        with contextlib.suppress(OSError):
-            os.remove(DB_PATH)
 
 
 def test_init_db_creates_file():
